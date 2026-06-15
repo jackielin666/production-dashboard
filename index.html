@@ -209,7 +209,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     <div class="ntab" onclick="switchTab('activity',this)">④ 品項活躍度</div>
     <div class="ntab" onclick="switchTab('lifecycle',this)">⑤ 品項生命週期</div>
     <div class="ntab" onclick="switchTab('heatmap',this)">⑥ 季節熱力圖</div>
-    <div class="ntab" onclick="switchTab('quality',this)">⑦ 生產品質分析</div>
+    <div class="ntab" onclick="switchTab('quality',this)">⑦ 生產製成率分析</div>
   </nav>
 </div>
 
@@ -413,16 +413,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 </div>
 
 
-<!-- ⑦ 生產品質分析 -->
+<!-- ⑦ 生產製成率分析 -->
 <div class="sec" id="sec-quality">
   <div class="sec-hdr">
-    <h2>⑦ 生產品質分析</h2>
-    <p>生產達成率歷史趨勢分析（2024/01 – 2026/05）；資料來源：製成率總表，已排除 #N/A 目標之研發/測試批次</p>
+    <h2>⑦ 生產製成率分析</h2>
+    <p>生產製成率歷史趨勢分析（2024/01 – 2026/05）；資料來源：製成率總表，已排除 #N/A 目標之研發/測試批次</p>
   </div>
 
   <!-- KPI 概覽 -->
   <div class="q-kpi-g">
-    <div class="q-kpi"><div class="q-kpi-val" id="qKpiAvg">—</div><div class="q-kpi-lbl">整體平均達成率</div></div>
+    <div class="q-kpi"><div class="q-kpi-val" id="qKpiAvg">—</div><div class="q-kpi-lbl">整體平均製成率</div></div>
     <div class="q-kpi"><div class="q-kpi-val" id="qKpiItems">116</div><div class="q-kpi-lbl">品項數</div></div>
     <div class="q-kpi"><div class="q-kpi-val" id="qKpiBatches">2,861</div><div class="q-kpi-lbl">有效批次數</div></div>
     <div class="q-kpi"><div class="q-kpi-val" id="qKpiAbnormal" style="color:var(--red)">—</div><div class="q-kpi-lbl">異常批次數（&lt;90% 或 &gt;115%）</div></div>
@@ -438,27 +438,27 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   </div>
 
   <div class="g2">
-    <!-- 月別平均達成率 -->
+    <!-- 月別平均製成率 -->
     <div class="card">
       <div class="card-hdr">
-        <div><div class="card-title">月別平均達成率</div><div class="card-sub" id="qMonthSub">全廠各月份平均，紅線=100%基準</div></div>
+        <div><div class="card-title">月別平均製成率</div><div class="card-sub" id="qMonthSub">全廠各月份平均，紅線=100%基準</div></div>
       </div>
       <canvas id="qMonthChart" height="220"></canvas>
     </div>
 
-    <!-- 品項達成率排名 -->
+    <!-- 品項製成率排名 -->
     <div class="card">
       <div class="card-hdr">
-        <div><div class="card-title">品項平均達成率排名</div><div class="card-sub">批次數≥5，由高到低（Top 20）</div></div>
+        <div><div class="card-title">品項平均製成率排名</div><div class="card-sub">批次數≥5，由高到低（Top 20）</div></div>
       </div>
       <canvas id="qRankChart" height="220"></canvas>
     </div>
   </div>
 
-  <!-- 品項達成率趨勢 -->
+  <!-- 品項製成率趨勢 -->
   <div class="card">
     <div class="card-hdr">
-      <div><div class="card-title">品項達成率月趨勢</div><div class="card-sub">選擇品項查看逐月平均達成率；點擊下方異常批次記錄可自動帶入</div></div>
+      <div><div class="card-title">品項製成率月趨勢</div><div class="card-sub">選擇品項查看逐月平均製成率；點擊下方異常批次記錄可自動帶入</div></div>
     </div>
     <div class="srch-wrap" style="max-width:480px;margin-bottom:12px;">
       <svg class="srch-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -466,13 +466,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
       <div class="srch-dd" id="qSrchDD"></div>
     </div>
     <div id="qTrendInfo" style="font-size:12px;color:var(--t3);margin-bottom:10px;">請選擇品項，或點擊下方異常批次記錄中的品項名稱</div>
-    <canvas id="qTrendChart" height="110"></canvas>
+    <canvas id="qTrendChart" height="75"></canvas>
   </div>
 
   <!-- 異常批次記錄 -->
   <div class="card">
     <div class="card-hdr">
-      <div><div class="card-title">異常批次記錄</div><div class="card-sub">達成率 &lt;90% 或 &gt;115%；點擊品名可自動帶入上方趨勢圖</div></div>
+      <div><div class="card-title">異常批次記錄</div><div class="card-sub">製成率 &lt;90% 或 &gt;115%；點擊品名可自動帶入上方趨勢圖</div></div>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="qAbnFilter" onchange="renderQAbnTable()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;color:var(--text);">
           <option value="all">全部異常</option>
@@ -991,7 +991,7 @@ function renderQMonthChart(){
     data:{
       labels,
       datasets:[{
-        label:'月均達成率',
+        label:'月均製成率',
         data:vals,
         borderColor:'#1d4ed8',
         backgroundColor:'rgba(29,78,216,0.08)',
@@ -1017,7 +1017,7 @@ function renderQMonthChart(){
       },
       scales:{
         x:{ticks:{maxRotation:45,font:{size:10}}},
-        y:{min:95,max:106,ticks:{callback:v=>v+'%'}}
+        y:{min:94,max:106,ticks:{callback:v=>v+'%'}}
       }
     }
   });
@@ -1052,7 +1052,7 @@ function renderQRankChart(){
     data:{
       labels,
       datasets:[{
-        label:'平均達成率%',
+        label:'平均製成率%',
         data:vals,
         backgroundColor:colors,
         borderRadius:4
@@ -1135,14 +1135,21 @@ function renderQTrendChart(code, name){
   const pointRadius = months.map(m => m===qSelectedMonth ? 8 : 4);
   
   document.getElementById('qTrendInfo').innerHTML =
-    `<b>${code}</b> ${name} ── 平均達成率: <b>${item.avg}%</b>，共 <b>${item.batches}</b> 批次`;
+    `<b>${code}</b> ${name} ── 平均製成率: <b>${item.avg}%</b>，共 <b>${item.batches}</b> 批次`;
   
+  // Dynamic Y axis: default 80~120, expand if data exceeds range
+  const trendVals2 = vals.filter(v=>v!==null);
+  const dataMin = trendVals2.length ? Math.min(...trendVals2) : 100;
+  const dataMax = trendVals2.length ? Math.max(...trendVals2) : 100;
+  const trendYMin = Math.min(80, Math.floor(dataMin/10)*10);
+  const trendYMax = Math.max(120, Math.ceil(dataMax/10)*10);
+
   qTrendChartInst = new Chart(ctx, {
     type:'line',
     data:{
       labels:months,
       datasets:[{
-        label:'月均達成率',
+        label:'月均製成率',
         data:vals,
         borderColor:'#b45309',
         backgroundColor:'rgba(180,83,9,0.08)',
@@ -1170,7 +1177,7 @@ function renderQTrendChart(code, name){
       },
       scales:{
         x:{ticks:{maxRotation:45,font:{size:10}}},
-        y:{ticks:{callback:v=>v+'%'}}
+        y:{min:trendYMin,max:trendYMax,ticks:{callback:v=>v+'%'}}
       }
     }
   });
@@ -1196,12 +1203,12 @@ function renderQAbnTable(){
     return;
   }
   tbl.innerHTML = `<thead><tr>
-    <th>日期</th><th>料號</th><th>品名（點擊帶入趨勢圖）</th><th>鍋數</th><th>達成率</th><th>備註</th>
+    <th>日期</th><th>料號</th><th>品名（點擊帶入趨勢圖）</th><th>鍋數</th><th>製成率</th><th>備註</th>
   </tr></thead><tbody>` +
   data.map(r=>`<tr>
     <td style="font-family:var(--mono);font-size:12px">${r.date}</td>
     <td style="font-family:var(--mono);font-size:12px;color:var(--blue)">${esc(r.code)}</td>
-    <td><a href="#" onclick="qJumpToTrend('${r.code}','${r.name.replace(/'/g,"\\'")}')" style="color:var(--blue);text-decoration:none;font-weight:500" title="點擊查看達成率趨勢">${esc(r.name)} 🔗</a></td>
+    <td><a href="#" onclick="qJumpToTrend('${r.code}','${r.name.replace(/'/g,"\\'")}')" style="color:var(--blue);text-decoration:none;font-weight:500" title="點擊查看製成率趨勢">${esc(r.name)} 🔗</a></td>
     <td style="text-align:center">${r.pots}</td>
     <td><span class="q-abnormal-badge ${r.rate>115?'q-hi':'q-lo'}">${r.rate.toFixed(1)}%</span></td>
     <td style="font-size:11px;color:var(--t3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.note||'')}</td>
