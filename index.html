@@ -729,7 +729,7 @@ function renderQCharts(it){
 // ── ② TOP 15 ─────────────────────────────────────────────
 let t20Cat='jam',selMos=[1,2,3],t15FC=null,t15SC=null;
 const hBarCfg=(yLbl,full)=>({responsive:true,maintainAspectRatio:false,indexAxis:'y',
-  interaction:{mode:'index',intersect:false},
+  interaction:{mode:'index',intersect:false,axis:'y'},
   plugins:{legend:{labels:{color:'#334155',font:{size:12},padding:14},position:'top'},
     tooltip:{...ttBase,callbacks:{label:ctx=>`  ${Math.round(ctx.raw).toLocaleString()} 鍋`,title:ctxArr=>ctxArr[0]?.label||''}}},
   scales:{x:{grid:grd,ticks:{...tk,callback:v=>v.toLocaleString()},title:{display:true,text:yLbl,color:'#64748b',font:{size:11}},border:{color:'#cbd5e1'}},
@@ -779,7 +779,7 @@ function renderYoyChart(){
   if(yoyChart)yoyChart.destroy();
   yoyChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:vals.map(v=>v==null?0:v),backgroundColor:colors,borderColor:borders,borderWidth:1.5,borderRadius:6,label:'成長率%'}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
+      interaction:{mode:'index',intersect:false,axis:'y'},
       plugins:{legend:{display:false},tooltip:{...ttBase,callbacks:{title:ctxArr=>ctxArr[0]?.label||'',label:ctx=>` ${ctx.raw>=0?'+':''}${ctx.raw}%`}}},
       scales:{x:{grid:grd,ticks:{...tk,callback:v=>v+'%'},title:{display:true,text:'成長率 %',color:'#64748b',font:{size:11}},border:{color:'#cbd5e1'}},
               y:{grid:{display:false},ticks:{color:'#0f172a',font:{size:12}},border:{color:'#cbd5e1'}}}}});
@@ -1093,6 +1093,7 @@ function renderQRankChart(){
     options:{
       indexAxis:'y',
       responsive:true,
+      interaction:{mode:'index',intersect:false,axis:'y'},
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:ctx=>ctx.parsed.x?.toFixed(1)+'%'}}
