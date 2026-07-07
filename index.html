@@ -615,7 +615,7 @@ function selectItem(key){
   const ct=document.getElementById('qCat');
   ct.textContent=it['類別'];ct.className=it['類別']==='花生類'?'cat-p':'cat-j';
   ct.style.cssText='font-size:12px;padding:4px 12px;border-radius:20px;';
-  const v26=[1,2,3,4,5].map(mo=>getMo(it,2026,mo)).filter(v=>v>0);
+  const v26=MO.slice(0,LM).map(mo=>getMo(it,LY,mo)).filter(v=>v>0);
   const trend=v26.length>=2?v26[v26.length-1]-v26[0]:0;
   const tb=document.getElementById('qTrend');
   if(trend>0){tb.textContent='↑ 今年上升';tb.className='badge-up';}
@@ -675,7 +675,7 @@ function renderQCharts(it){
       {label:'趨勢線',data:trend,borderColor:'#94a3b8',borderDash:[5,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,spanGaps:true}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'y',intersect:false},
+      interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{labels:{color:'#334155',font:{size:13},generateLabels:chart=>[
           {text:'2024',fillStyle:YC[2024],strokeStyle:YC[2024],lineWidth:2,hidden:false},
@@ -713,14 +713,14 @@ function renderQCharts(it){
   if(qYrChart)qYrChart.destroy();
   const ds2=[2024,2025,2026].filter(yr=>gY[yr]).map(yr=>({
     label:String(yr),
-    data:MO.map(mo=>{if(yr===2026&&mo>5)return null;const v=getMo(it,yr,mo);return v>0?v:null;}),
+    data:MO.map(mo=>{const v=getMo(it,yr,mo);return v>0?v:null;}),
     borderColor:YC[yr],backgroundColor:YC[yr]+'12',tension:.35,fill:false,
     pointRadius:4,pointHoverRadius:8,spanGaps:true,borderWidth:2,
     pointBackgroundColor:YC[yr],pointHoverBackgroundColor:YC[yr]
   }));
   qYrChart=new Chart(ctx2,{type:'line',data:{labels:ML,datasets:ds2},options:{
     responsive:true,maintainAspectRatio:false,
-    interaction:{mode:'y',intersect:false},
+    interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:'#334155',font:{size:13}}},tooltip:{...ttBase}},
     scales:{x:{grid:grd,ticks:tk,border:{color:'#cbd5e1'}},y:{grid:grd,ticks:tk,title:{display:true,text:'鍋數',color:'#64748b',font:{size:11}},border:{color:'#cbd5e1'}}}
   }});
@@ -729,7 +729,7 @@ function renderQCharts(it){
 // ── ② TOP 15 ─────────────────────────────────────────────
 let t20Cat='jam',selMos=[1,2,3],t15FC=null,t15SC=null;
 const hBarCfg=(yLbl,full)=>({responsive:true,maintainAspectRatio:false,indexAxis:'y',
-  interaction:{mode:'y',intersect:false},
+  interaction:{mode:'index',intersect:false},
   plugins:{legend:{labels:{color:'#334155',font:{size:12},padding:14},position:'top'},
     tooltip:{...ttBase,callbacks:{label:ctx=>`  ${Math.round(ctx.raw).toLocaleString()} 鍋`,title:ctxArr=>ctxArr[0]?.label||''}}},
   scales:{x:{grid:grd,ticks:{...tk,callback:v=>v.toLocaleString()},title:{display:true,text:yLbl,color:'#64748b',font:{size:11}},border:{color:'#cbd5e1'}},
@@ -779,7 +779,7 @@ function renderYoyChart(){
   if(yoyChart)yoyChart.destroy();
   yoyChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:vals.map(v=>v==null?0:v),backgroundColor:colors,borderColor:borders,borderWidth:1.5,borderRadius:6,label:'成長率%'}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'y',intersect:false},
+      interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},tooltip:{...ttBase,callbacks:{title:ctxArr=>ctxArr[0]?.label||'',label:ctx=>` ${ctx.raw>=0?'+':''}${ctx.raw}%`}}},
       scales:{x:{grid:grd,ticks:{...tk,callback:v=>v+'%'},title:{display:true,text:'成長率 %',color:'#64748b',font:{size:11}},border:{color:'#cbd5e1'}},
               y:{grid:{display:false},ticks:{color:'#0f172a',font:{size:12}},border:{color:'#cbd5e1'}}}}});
@@ -858,7 +858,7 @@ function renderLcChart(){
   lcChart=new Chart(ctx,{type:'bar',data:{labels:cats.map(c=>LC_EMOJI[c]+' '+c),datasets:[{data:cats.map(c=>counts[c]),
     backgroundColor:cats.map(c=>LC_C[c]+'bb'),borderColor:cats.map(c=>LC_C[c]),borderWidth:2,borderRadius:7,hoverOffset:4}]},
     options:{responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'y',intersect:false},
+      interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},tooltip:{...ttBase,callbacks:{label:ctx=>` ${ctx.raw} 個品項`}}},
       scales:{x:{grid:{display:false},ticks:{color:'#0f172a',font:{size:12}},border:{color:'#cbd5e1'}},
               y:{grid:grd,ticks:tk,title:{display:true,text:'品項數',color:'#64748b',font:{size:11}},border:{color:'#cbd5e1'}}}}});
