@@ -199,6 +199,7 @@ body.no-data .shell,body.no-data .main{display:none;}
 .up-status.loading{color:var(--blue);}
 .up-status.error{color:var(--red);}
 .up-note{margin-top:14px;font-size:11px;color:var(--t4);line-height:1.6;}
+.drop-note{margin:0 0 14px;padding:9px 14px;background:var(--amber-l);border:1px solid #f6d68a;border-radius:8px;font-size:12.5px;color:var(--amber);line-height:1.5;}
 </style>
 </head>
 <body class="no-data">
@@ -250,6 +251,7 @@ body.no-data .shell,body.no-data .main{display:none;}
 </div>
 
 <div class="main" id="main">
+  <div id="dropNote" class="drop-note" style="display:none"></div>
 
 <!-- ① 品項查詢 -->
 <div class="sec active" id="sec-query">
@@ -1304,6 +1306,32 @@ function initQualityTab(){
     if (!ws) throw new Error("找不到「資料總表」工作表，請確認上傳的是正確的產品製成率檔案。");
     const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
 
+    // ---- pre-scan: detect an incomplete trailing month ----
+    // Count valid records per year-month; if the newest month has far fewer
+    // records than the median of prior months (< 90%), treat it as "not yet
+    // filled" and exclude it. It is auto-included again once it fills up.
+    const monthCounts={};
+    for (let i=1;i<rows.length;i++){
+      const r=rows[i]; if(!r) continue;
+      const ymd=parseYMD(r[0], XLSX); if(!ymd) continue;
+      const nm=r[2]; if(nm===null||nm===undefined) continue;
+      const s=String(nm).trim(); if(s==='#N/A'||s==='') continue;
+      const ym=ymd[0]*100+ymd[1]; monthCounts[ym]=(monthCounts[ym]||0)+1;
+    }
+    const allYM=Object.keys(monthCounts).map(Number).sort((a,b)=>a-b);
+    let capYM=Infinity, dropped=null;
+    if (allYM.length>=4){
+      const latest=allYM[allYM.length-1];
+      const prior=allYM.slice(0,-1).map(ym=>monthCounts[ym]).sort((a,b)=>a-b);
+      const mid=Math.floor(prior.length/2);
+      const median=prior.length%2 ? prior[mid] : (prior[mid-1]+prior[mid])/2;
+      if (median>0 && monthCounts[latest] < 0.9*median){
+        capYM=allYM[allYM.length-2];
+        dropped={label:`${Math.floor(latest/100)}/${String(latest%100).padStart(2,'0')}`,
+                 count:monthCounts[latest], median:Math.round(median)};
+      }
+    }
+
     const pots={}, wt={}, meta={}, monthset=new Set();
     const yrate={}, item_rate={}, item_name={};
     const abnormal=[];
@@ -1320,6 +1348,7 @@ function initQualityTab(){
       const name=r[2];
       if (name===null||name===undefined) continue;
       const ns=String(name).trim(); if (ns==='#N/A'||ns==='') continue;
+      if (y*100+m > capYM) continue;   // skip an incomplete trailing month
       monthset.add(y*100+m);
       if (y>cy || (y===cy && m>cm)){ cy=y; cm=m; }
       const code=r[1];
@@ -1443,7 +1472,7 @@ function initQualityTab(){
     const abn=abnormal.slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
     const QD={months:mlabels, monthly_avg, items:qitems, abnormal:abn};
 
-    return {D, QD, latest:{y:cy,m:cm}};
+    return {D, QD, latest:{y:cy,m:cm}, dropped:dropped};
   }
 
   global.buildDashboardData = buildData;
@@ -1464,6 +1493,9 @@ function handleFile(file){
       const res=window.buildDashboardData(wb, XLSX);
       D=res.D; QD=res.QD; LY=res.latest.y; LM=res.latest.m;
       LATEST_LABEL=D.timeline[D.timeline.length-1].label;
+      const dn=document.getElementById('dropNote');
+      if(res.dropped){ dn.textContent='ℹ️ 已自動忽略未補齊的 '+res.dropped.label+'（僅 '+res.dropped.count+' 筆，約為前月中位數 '+res.dropped.median+' 的 '+Math.round(res.dropped.count/res.dropped.median*100)+'%）；補齊後會自動納入。'; dn.style.display='block'; }
+      else { dn.style.display='none'; }
       applyDynamicLabels();
       document.body.classList.remove('no-data');
       initDashboard();
