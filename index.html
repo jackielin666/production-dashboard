@@ -238,11 +238,13 @@ body.loading .upload-screen,body.loading .shell,body.loading .main{display:none;
 .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .loading-text{font-size:13px;color:var(--t3);font-family:var(--mono);}
+.up-view-btn{margin-top:16px;width:100%;padding:11px;border:1.5px solid var(--border2);background:#fff;color:var(--t2);border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;}
+.up-view-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--s2);}
 </style>
 </head>
-<body class="loading">
+<body class="no-data">
 <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
-<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><div class="loading-text">載入最新資料中…</div></div>
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><div class="loading-text">載入中…</div></div>
 <div class="upload-screen" id="uploadScreen">
   <div class="up-card">
     <div class="up-logo">⚙️</div>
@@ -254,7 +256,8 @@ body.loading .upload-screen,body.loading .shell,body.loading .main{display:none;
       <div class="dz-sub">支援 .xlsx（需含「資料總表」工作表）</div>
     </label>
     <div class="up-status" id="upStatus"></div>
-    <div class="up-note">每月只要上傳新的 Excel，圖表與統計會自動更新到最新月份。</div>
+    <button class="up-view-btn" id="viewLatestBtn" style="display:none" onclick="viewLatest()">📊 不上傳，直接查看目前的儀表板 →</button>
+    <div class="up-note">要更新資料就上傳新的 Excel；不上傳則可直接查看目前已發布的版本。</div>
   </div>
 </div>
 
@@ -1529,6 +1532,12 @@ function initQualityTab(){
 <script>
 /* ── UPLOAD-DRIVEN INIT ─────────────────────────────────── */
 let LY=2026, LM=6, LATEST_LABEL='2026/06';
+let publishedBytes=null;
+function runLoad(fn){
+  document.body.className='loading';
+  setTimeout(function(){ var ok=fn(); if(ok){ document.body.classList.remove('loading'); } else { document.body.className='no-data'; } }, 30);
+}
+function viewLatest(){ if(publishedBytes) runLoad(function(){ return loadBytes(publishedBytes,'published'); }); }
 function loadBytes(bytes, source){
   const status=document.getElementById('upStatus');
   try{
@@ -1554,7 +1563,7 @@ function handleFile(file){
   const status=document.getElementById('upStatus');
   if(status){ status.textContent='讀取中…'; status.className='up-status loading'; }
   const reader=new FileReader();
-  reader.onload=function(e){ loadBytes(new Uint8Array(e.target.result), 'local'); };
+  reader.onload=function(e){ var bytes=new Uint8Array(e.target.result); runLoad(function(){ return loadBytes(bytes,'local'); }); };
   reader.onerror=function(){ if(status){ status.textContent='⚠️ 檔案讀取失敗，請再試一次。'; status.className='up-status error'; } };
   reader.readAsArrayBuffer(file);
 }
@@ -1610,15 +1619,11 @@ function initDashboard(){
 }
 window.addEventListener('resize',function(){ if(!document.body.classList.contains('no-data')) setShellH(); });
 document.addEventListener('DOMContentLoaded',function(){
-  // Auto-load the published dataset committed in the repo (if any)
+  // Prefetch the published dataset so the "view current dashboard" button works
   fetch('data/latest.xlsx',{cache:'no-store'})
     .then(function(r){ if(!r.ok) throw 0; return r.arrayBuffer(); })
-    .then(function(buf){
-      var ok=loadBytes(new Uint8Array(buf),'published');
-      document.body.classList.remove('loading');
-      if(!ok) document.body.classList.add('no-data');
-    })
-    .catch(function(){ document.body.classList.remove('loading'); document.body.classList.add('no-data'); });
+    .then(function(buf){ publishedBytes=new Uint8Array(buf); var vb=document.getElementById('viewLatestBtn'); if(vb) vb.style.display='inline-flex'; })
+    .catch(function(){ /* nothing published yet -> upload only */ });
   const input=document.getElementById('fileInput');
   input.addEventListener('change',function(e){ if(e.target.files&&e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
   const dz=document.getElementById('dropZone');
