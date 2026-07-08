@@ -1535,7 +1535,15 @@ let LY=2026, LM=6, LATEST_LABEL='2026/06';
 let publishedBytes=null;
 function runLoad(fn){
   document.body.className='loading';
-  setTimeout(function(){ var ok=fn(); if(ok){ document.body.classList.remove('loading'); } else { document.body.className='no-data'; } }, 30);
+  setTimeout(function(){
+    var ok=fn();
+    if(ok){
+      document.body.classList.remove('loading');
+      // header is now visible; recompute its height so content isn't crowded
+      requestAnimationFrame(setShellH);
+      if(document.fonts&&document.fonts.ready) document.fonts.ready.then(setShellH);
+    } else { document.body.className='no-data'; }
+  }, 30);
 }
 function viewLatest(){ if(publishedBytes) runLoad(function(){ return loadBytes(publishedBytes,'published'); }); }
 function loadBytes(bytes, source){
