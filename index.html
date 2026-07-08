@@ -229,6 +229,9 @@ body.no-data .shell,body.no-data .main{display:none;}
   .kpi{padding:13px 14px;}
   .card{padding:15px 14px;}
 }
+.src-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-family:var(--mono);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.src-tag.pub{background:var(--green-l);color:var(--green);}
+.src-tag.local{background:var(--amber-l);color:var(--amber);}
 </style>
 </head>
 <body class="no-data">
@@ -263,7 +266,8 @@ body.no-data .shell,body.no-data .main{display:none;}
         <button class="yp-btn y2025 on" data-yr="2025" onclick="gToggleYear(2025,this)">2025</button>
         <button class="yp-btn y2026 on" data-yr="2026" onclick="gToggleYear(2026,this)">2026</button>
       </div>
-      <button class="btn-sm" onclick="document.getElementById('fileInput').click()">📤 重新上傳</button>
+      <span id="srcTag" class="src-tag" style="display:none"></span>
+      <button class="btn-sm" onclick="document.getElementById('fileInput').click()" title="上傳一份 Excel 只在本機預覽，不會發布給其他人">📤 預覽其他檔案</button>
       <button class="btn-sm" onclick="exportExcel()">📊 Excel</button>
       <button class="btn-sm" onclick="window.print()">🖨️ PDF</button>
     </div>
@@ -1518,31 +1522,40 @@ function initQualityTab(){
 <script>
 /* ── UPLOAD-DRIVEN INIT ─────────────────────────────────── */
 let LY=2026, LM=6, LATEST_LABEL='2026/06';
+function loadBytes(bytes, source){
+  const status=document.getElementById('upStatus');
+  try{
+    const wb=XLSX.read(bytes,{type:'array'});
+    const res=window.buildDashboardData(wb, XLSX);
+    D=res.D; QD=res.QD; LY=res.latest.y; LM=res.latest.m;
+    LATEST_LABEL=D.timeline[D.timeline.length-1].label;
+    const dn=document.getElementById('dropNote');
+    if(res.dropped){ dn.textContent='ℹ️ 已自動忽略未補齊的 '+res.dropped.label+'（僅 '+res.dropped.count+' 筆，約為前月中位數 '+res.dropped.median+' 的 '+Math.round(res.dropped.count/res.dropped.median*100)+'%）；補齊後會自動納入。'; dn.style.display='block'; }
+    else { dn.style.display='none'; }
+    applyDynamicLabels(); setSource(source);
+    document.body.classList.remove('no-data');
+    initDashboard();
+    if(status){ status.textContent=''; status.className='up-status'; }
+    return true;
+  }catch(err){
+    console.error(err);
+    if(status){ status.textContent='⚠️ '+(err&&err.message?err.message:'讀取失敗，請確認上傳的是正確的 Excel 檔。'); status.className='up-status error'; }
+    return false;
+  }
+}
 function handleFile(file){
   const status=document.getElementById('upStatus');
-  status.textContent='讀取中…'; status.className='up-status loading';
+  if(status){ status.textContent='讀取中…'; status.className='up-status loading'; }
   const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-      const res=window.buildDashboardData(wb, XLSX);
-      D=res.D; QD=res.QD; LY=res.latest.y; LM=res.latest.m;
-      LATEST_LABEL=D.timeline[D.timeline.length-1].label;
-      const dn=document.getElementById('dropNote');
-      if(res.dropped){ dn.textContent='ℹ️ 已自動忽略未補齊的 '+res.dropped.label+'（僅 '+res.dropped.count+' 筆，約為前月中位數 '+res.dropped.median+' 的 '+Math.round(res.dropped.count/res.dropped.median*100)+'%）；補齊後會自動納入。'; dn.style.display='block'; }
-      else { dn.style.display='none'; }
-      applyDynamicLabels();
-      document.body.classList.remove('no-data');
-      initDashboard();
-      status.textContent=''; status.className='up-status';
-    }catch(err){
-      console.error(err);
-      status.textContent='⚠️ '+(err&&err.message?err.message:'讀取失敗，請確認上傳的是正確的 Excel 檔。');
-      status.className='up-status error';
-    }
-  };
-  reader.onerror=function(){ status.textContent='⚠️ 檔案讀取失敗，請再試一次。'; status.className='up-status error'; };
+  reader.onload=function(e){ loadBytes(new Uint8Array(e.target.result), 'local'); };
+  reader.onerror=function(){ if(status){ status.textContent='⚠️ 檔案讀取失敗，請再試一次。'; status.className='up-status error'; } };
   reader.readAsArrayBuffer(file);
+}
+function setSource(source){
+  const el=document.getElementById('srcTag'); if(!el) return;
+  el.style.display='inline-flex';
+  if(source==='published'){ el.textContent='● 線上發布版'; el.className='src-tag pub'; }
+  else { el.textContent='● 本地預覽（未發布）'; el.className='src-tag local'; }
 }
 function applyDynamicLabels(){
   const L=LATEST_LABEL, N=LM, Y=LY, PY=LY-1;
@@ -1590,6 +1603,11 @@ function initDashboard(){
 }
 window.addEventListener('resize',function(){ if(!document.body.classList.contains('no-data')) setShellH(); });
 document.addEventListener('DOMContentLoaded',function(){
+  // Auto-load the published dataset committed in the repo (if any)
+  fetch('data/latest.xlsx',{cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw 0; return r.arrayBuffer(); })
+    .then(function(buf){ loadBytes(new Uint8Array(buf),'published'); })
+    .catch(function(){ /* nothing published yet -> upload screen stays */ });
   const input=document.getElementById('fileInput');
   input.addEventListener('change',function(e){ if(e.target.files&&e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
   const dz=document.getElementById('dropZone');
