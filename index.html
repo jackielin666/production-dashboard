@@ -200,6 +200,35 @@ body.no-data .shell,body.no-data .main{display:none;}
 .up-status.error{color:var(--red);}
 .up-note{margin-top:14px;font-size:11px;color:var(--t4);line-height:1.6;}
 .drop-note{margin:0 0 14px;padding:9px 14px;background:var(--amber-l);border:1px solid #f6d68a;border-radius:8px;font-size:12.5px;color:var(--amber);line-height:1.5;}
+
+/* ── KPI SUMMARY CARDS ─────────────────────────────────── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;box-shadow:var(--sh);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#1d4ed8,#6366f1);}
+.kpi-label{font-size:12px;color:var(--t3);margin-bottom:7px;font-weight:500;}
+.kpi-month{font-family:var(--mono);font-size:10px;color:var(--t4);}
+.kpi-val{font-size:26px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;color:var(--text);line-height:1.1;}
+.kpi-delta,.kpi-sub{font-size:11.5px;margin-top:5px;font-family:var(--mono);color:var(--t3);}
+.kpi-delta.up{color:var(--green);}.kpi-delta.dn{color:var(--red);}
+
+/* ── RESPONSIVE ────────────────────────────────────────── */
+@media(max-width:860px){
+  .main{padding:16px 14px;}
+  .g2{grid-template-columns:1fr;}
+  .kpi-row{grid-template-columns:1fr 1fr;}
+  .q-kpi-g{grid-template-columns:1fr 1fr;}
+  .hdr{padding:10px 14px;gap:8px;}
+  .hdr-title{font-size:14px;}
+}
+@media(max-width:520px){
+  .main{padding:12px 10px;}
+  .stats-g{grid-template-columns:1fr;}
+  .kpi-val{font-size:21px;}
+  .sec-hdr h2{font-size:17px;}
+  .btn-sm{padding:5px 9px;font-size:11px;}
+  .kpi{padding:13px 14px;}
+  .card{padding:15px 14px;}
+}
 </style>
 </head>
 <body class="no-data">
@@ -252,6 +281,12 @@ body.no-data .shell,body.no-data .main{display:none;}
 
 <div class="main" id="main">
   <div id="dropNote" class="drop-note" style="display:none"></div>
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi"><div class="kpi-label">本月總鍋數 <span id="kpiMonth" class="kpi-month"></span></div><div class="kpi-val" id="kpiPots">—</div><div class="kpi-delta" id="kpiPotsD"></div></div>
+    <div class="kpi"><div class="kpi-label">本月平均製成率</div><div class="kpi-val" id="kpiRate">—</div><div class="kpi-delta" id="kpiRateD"></div></div>
+    <div class="kpi"><div class="kpi-label">本月異常批次</div><div class="kpi-val" id="kpiAbn">—</div><div class="kpi-sub" id="kpiAbnS"></div></div>
+    <div class="kpi"><div class="kpi-label">本月生產品項</div><div class="kpi-val" id="kpiItems">—</div><div class="kpi-sub" id="kpiItemsS"></div></div>
+  </div>
 
 <!-- ① 品項查詢 -->
 <div class="sec active" id="sec-query">
@@ -1518,15 +1553,42 @@ function applyDynamicLabels(){
   set('yoySubtitle', 'Top 20 品項：'+Y+'年1–'+N+'月 vs '+PY+'年1–'+N+'月鍋數成長率');
   set('qualitySubtitle', '生產製成率歷史趨勢分析（2024/01 – '+L+'）；資料來源：製成率總表，已排除 #N/A 目標之研發/測試批次');
 }
+function renderKpi(){
+  if(!D||!QD) return;
+  const label=LATEST_LABEL;
+  const prevY=LM===1?LY-1:LY, prevM=LM===1?12:LM-1;
+  const prevLabel=prevY+'/'+String(prevM).padStart(2,'0');
+  let potsThis=0, potsPrev=0, itemsThis=0;
+  Object.values(D.item_data).forEach(it=>{
+    const a=getMo(it,LY,LM); if(a>0){potsThis+=a; itemsThis++;}
+    potsPrev+=getMo(it,prevY,prevM);
+  });
+  const rate=QD.monthly_avg[label], ratePrev=QD.monthly_avg[prevLabel];
+  const abn=QD.abnormal.filter(a=>a.date.slice(0,7)===label).length;
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+  set('kpiMonth', label);
+  set('kpiPots', Math.round(potsThis).toLocaleString());
+  set('kpiRate', rate!=null?rate.toFixed(1)+'%':'—');
+  set('kpiAbn', abn);
+  set('kpiItems', itemsThis);
+  set('kpiAbnS', label);
+  set('kpiItemsS', '本月有生產');
+  const pd=document.getElementById('kpiPotsD');
+  if(pd){ if(potsPrev>0){const d=(potsThis-potsPrev)/potsPrev*100; pd.textContent=(d>=0?'▲ +':'▼ ')+Math.abs(Math.round(d))+'% vs 上月'; pd.className='kpi-delta '+(d>0?'up':d<0?'dn':'');} else {pd.textContent='—'; pd.className='kpi-delta';} }
+  const rd=document.getElementById('kpiRateD');
+  if(rd){ if(rate!=null&&ratePrev!=null){const d=rate-ratePrev; rd.textContent=(d>=0?'▲ +':'▼ ')+Math.abs(d).toFixed(1)+' pp vs 上月'; rd.className='kpi-delta '+(d>0?'up':d<0?'dn':'');} else {rd.textContent='—'; rd.className='kpi-delta';} }
+}
 function initDashboard(){
   setShellH();
   renderTop20();renderYoyChart();buildYoyTbl();
   renderActDonut();buildActTbl();
   renderLcChart();buildLcTbl('all');
   renderHeatmap(String(LY));
+  renderKpi();
   switchTab('query', document.querySelectorAll('.ntab')[0]);
   window.scrollTo(0,0);
 }
+window.addEventListener('resize',function(){ if(!document.body.classList.contains('no-data')) setShellH(); });
 document.addEventListener('DOMContentLoaded',function(){
   const input=document.getElementById('fileInput');
   input.addEventListener('change',function(e){ if(e.target.files&&e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
