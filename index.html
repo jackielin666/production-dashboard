@@ -232,10 +232,17 @@ body.no-data .shell,body.no-data .main{display:none;}
 .src-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-family:var(--mono);padding:3px 9px;border-radius:20px;white-space:nowrap;}
 .src-tag.pub{background:var(--green-l);color:var(--green);}
 .src-tag.local{background:var(--amber-l);color:var(--amber);}
+.loading-screen{display:none;position:fixed;inset:0;z-index:1001;background:var(--bg);align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+body.loading .loading-screen{display:flex;}
+body.loading .upload-screen,body.loading .shell,body.loading .main{display:none;}
+.spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:13px;color:var(--t3);font-family:var(--mono);}
 </style>
 </head>
-<body class="no-data">
+<body class="loading">
 <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><div class="loading-text">載入最新資料中…</div></div>
 <div class="upload-screen" id="uploadScreen">
   <div class="up-card">
     <div class="up-logo">⚙️</div>
@@ -1606,8 +1613,12 @@ document.addEventListener('DOMContentLoaded',function(){
   // Auto-load the published dataset committed in the repo (if any)
   fetch('data/latest.xlsx',{cache:'no-store'})
     .then(function(r){ if(!r.ok) throw 0; return r.arrayBuffer(); })
-    .then(function(buf){ loadBytes(new Uint8Array(buf),'published'); })
-    .catch(function(){ /* nothing published yet -> upload screen stays */ });
+    .then(function(buf){
+      var ok=loadBytes(new Uint8Array(buf),'published');
+      document.body.classList.remove('loading');
+      if(!ok) document.body.classList.add('no-data');
+    })
+    .catch(function(){ document.body.classList.remove('loading'); document.body.classList.add('no-data'); });
   const input=document.getElementById('fileInput');
   input.addEventListener('change',function(e){ if(e.target.files&&e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
   const dz=document.getElementById('dropZone');
