@@ -1,0 +1,9 @@
+{
+  "decline_pct": 10,
+  "min_scale_pots": 20,
+  "top_n": 10,
+  "dormant_lookback": 6,
+  "dormant_min_active": 3,
+  "kg_flat_pct": 3,
+  "trend_months": 24
+}

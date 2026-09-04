@@ -240,6 +240,7 @@ body.loading .upload-screen,body.loading .shell,body.loading .main{display:none;
 .loading-text{font-size:13px;color:var(--t3);font-family:var(--mono);}
 .up-view-btn{margin-top:16px;width:100%;padding:11px;border:1.5px solid var(--border2);background:#fff;color:var(--t2);border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;}
 .up-view-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--s2);}
+a.btn-link{display:inline-flex;align-items:center;text-decoration:none;}
 </style>
 </head>
 <body class="no-data">
@@ -278,6 +279,7 @@ body.loading .upload-screen,body.loading .shell,body.loading .main{display:none;
       </div>
       <span id="srcTag" class="src-tag" style="display:none"></span>
       <button class="btn-sm" onclick="document.getElementById('fileInput').click()" title="上傳一份 Excel 只在本機預覽，不會發布給其他人">📤 預覽其他檔案</button>
+      <a class="btn-sm btn-link" href="reports/" title="歷月業務月報">📑 月報</a>
       <button class="btn-sm" onclick="exportExcel()">📊 Excel</button>
       <button class="btn-sm" onclick="window.print()">🖨️ PDF</button>
     </div>
