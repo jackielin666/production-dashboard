@@ -583,7 +583,7 @@ TPL = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>生產業務月報 __MONTH__</title>
+<title>生產鍋數月報 __MONTH__</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;
@@ -637,7 +637,7 @@ footer{margin-top:26px;font-size:11.5px;color:var(--t4);line-height:1.8;}
 <div class="wrap">
 <header class="top">
   <div>
-    <h1>生產業務月報 · __MONTH__</h1>
+    <h1>生產鍋數月報 · __MONTH__</h1>
     <div class="sub">業務量／接單趨勢分析　｜　與 __PREV__（上月）、__YOY__（去年同月）比較　｜　產生於 __GEN__</div>
   </div>
   <div class="light __LIGHT__">__LIGHT_ICON__ __LIGHT_LABEL__</div>
@@ -915,7 +915,7 @@ def build_index():
                 R['real_alert_count'], len(R['dormant'])))
     body = '\n'.join(rows) if rows else '<p class="muted">尚未產生任何月報。</p>'
     html_out = """<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>生產業務月報 · 索引</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>生產鍋數月報 · 索引</title>
 <style>
 body{margin:0;background:#f6f7f9;color:#0f172a;font-family:'Noto Sans TC',-apple-system,'Segoe UI',sans-serif;}
 .wrap{max-width:820px;margin:0 auto;padding:34px 20px 60px;}
@@ -935,7 +935,7 @@ a.back{display:inline-block;margin-bottom:18px;font-size:12.5px;color:#1d4ed8;te
 @media(max-width:640px){.row{grid-template-columns:1fr;gap:5px;}}
 </style></head><body><div class="wrap">
 <a class="back" href="../">← 回到儀表板</a>
-<h1>生產業務月報</h1>
+<h1>生產鍋數月報</h1>
 <div class="sub">依業務量（鍋數／重量）分析接單趨勢與衰退警示。點擊月份查看完整報告。</div>
 __ROWS__
 </div></body></html>"""
