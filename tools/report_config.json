@@ -5,5 +5,13 @@
   "dormant_lookback": 6,
   "dormant_min_active": 3,
   "kg_flat_pct": 3,
-  "trend_months": 24
+  "trend_months": 24,
+
+  "_item_overrides_help": "以料號為 key 標註特殊品項。status: discontinued=已下市（完全排除警示與燈號）; seasonal_oem=季節性代工（不列主力、不觸發燈號、另計排除後總量）。新增品項只要加一行。",
+  "item_overrides": {
+    "C1020": { "status": "discontinued", "label": "已下市",
+               "note": "已下市產品，非接單流失（天天開心草莓餡4.5KG）" },
+    "D0390": { "status": "seasonal_oem", "label": "季節性代工",
+               "note": "代工的季節性產品，非主力型產品（化應子(1*2.5KG)）" }
+  }
 }
