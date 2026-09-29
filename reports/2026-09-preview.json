@@ -4,12 +4,11 @@
  "mon": 9,
  "prev_label": "2026/08",
  "yoy_label": "2025/09",
- "generated_at": "2026-09-29 03:43",
+ "generated_at": "2026-09-29 04:03",
  "preview": {
   "asof": "2026-09-24",
   "day": 24,
   "days_in_month": 30,
-  "factor": 1.25,
   "full_month": false,
   "cur_period": "9/1–9/24",
   "prev_period": "8/1–8/24",
@@ -42,8 +41,7 @@
   "ytd_prev": 23577,
   "ytd_pct": 6.8,
   "ytd_kg": 3018585,
-  "ytd_kg_prev": 3194200,
-  "projected": 2660
+  "ytd_kg_prev": 3194200
  },
  "ex_oem": {
   "pots": 1804,
@@ -149,7 +147,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -174,7 +171,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -199,7 +195,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -224,7 +219,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -249,23 +243,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [
-    {
-     "料號": "D0331",
-     "品項": "藍莓餡(1*6KG)",
-     "gain": 4
-    },
-    {
-     "料號": "D0630",
-     "品項": "藍莓餡(1*6KG)",
-     "gain": 6
-    },
-    {
-     "料號": "D1130",
-     "品項": "藍莓餡(1*6kg)",
-     "gain": 16
-    }
-   ],
    "grade": "A"
   },
   {
@@ -290,7 +267,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -315,7 +291,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -340,7 +315,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "B"
   },
   {
@@ -365,7 +339,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "B"
   },
   {
@@ -390,13 +363,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [
-    {
-     "料號": "D0111",
-     "品項": "草莓餡(1*6Kg)",
-     "gain": 16
-    }
-   ],
    "grade": "B"
   },
   {
@@ -421,7 +387,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "B"
   },
   {
@@ -446,7 +411,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "B"
   },
   {
@@ -471,7 +435,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "B"
   },
   {
@@ -496,7 +459,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "B"
   },
   {
@@ -521,7 +483,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "C"
   },
   {
@@ -546,13 +507,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [
-    {
-     "料號": "C3020-1",
-     "品項": "藍莓餡（大）(1*9.08kg)",
-     "gain": 8
-    }
-   ],
    "grade": "C"
   },
   {
@@ -577,7 +531,6 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "C"
   }
  ],
@@ -614,7 +567,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -639,7 +591,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -664,7 +615,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -689,7 +639,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -714,23 +663,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [
-    {
-     "料號": "D0331",
-     "品項": "藍莓餡(1*6KG)",
-     "gain": 4
-    },
-    {
-     "料號": "D0630",
-     "品項": "藍莓餡(1*6KG)",
-     "gain": 6
-    },
-    {
-     "料號": "D1130",
-     "品項": "藍莓餡(1*6kg)",
-     "gain": 16
-    }
-   ],
    "grade": "A"
   },
   {
@@ -755,7 +687,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   },
   {
@@ -780,7 +711,6 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "hints": [],
    "grade": "A"
   }
  ],
@@ -797,8 +727,7 @@
    "last_seen_pots": 24,
    "suspect_lost": false,
    "core": true,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "D0422",
@@ -812,8 +741,7 @@
    "last_seen_pots": 36,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "B2021-1",
@@ -827,8 +755,7 @@
    "last_seen_pots": 152,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "F0010",
@@ -842,8 +769,7 @@
    "last_seen_pots": 50,
    "suspect_lost": false,
    "core": true,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "D0420",
@@ -857,8 +783,7 @@
    "last_seen_pots": 24,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "F0020",
@@ -872,8 +797,7 @@
    "last_seen_pots": 30,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "D0291",
@@ -887,8 +811,7 @@
    "last_seen_pots": 74,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "D1410-1",
@@ -902,8 +825,7 @@
    "last_seen_pots": 36,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   },
   {
    "key": "C7020",
@@ -917,8 +839,7 @@
    "last_seen_pots": 8,
    "suspect_lost": false,
    "core": false,
-   "tag": null,
-   "hints": []
+   "tag": null
   }
  ],
  "growth": [
@@ -1063,6 +984,89 @@
    "tag": null
   }
  ],
+ "core_items": [
+  {
+   "料號": "B2011",
+   "品項": "＃1花生(1*2.8kg)",
+   "base12": 6356,
+   "share": 19.8,
+   "pots_cur": 480,
+   "pots_prev": 560
+  },
+  {
+   "料號": "B1011",
+   "品項": "＃1草莓(1*3.2kg)",
+   "base12": 4200,
+   "share": 13.1,
+   "pots_cur": 208,
+   "pots_prev": 380
+  },
+  {
+   "料號": "D0310",
+   "品項": "草莓蒟蒻餡(1*6kg)",
+   "base12": 2844,
+   "share": 8.9,
+   "pots_cur": 172,
+   "pots_prev": 228
+  },
+  {
+   "料號": "B2021",
+   "品項": "＃1花生(粒)(1*2.8kg)",
+   "base12": 1440,
+   "share": 4.5,
+   "pots_cur": 32,
+   "pots_prev": 68
+  },
+  {
+   "料號": "D0210",
+   "品項": "草莓醬(1*6kg)",
+   "base12": 982,
+   "share": 3.1,
+   "pots_cur": 0,
+   "pots_prev": 0
+  },
+  {
+   "料號": "A1020",
+   "品項": "大圓草莓-新",
+   "base12": 972,
+   "share": 3.0,
+   "pots_cur": 104,
+   "pots_prev": 40
+  },
+  {
+   "料號": "B3011",
+   "品項": "＃1藍莓(1*3.2kg)",
+   "base12": 932,
+   "share": 2.9,
+   "pots_cur": 36,
+   "pots_prev": 108
+  },
+  {
+   "料號": "F0010",
+   "品項": "蜜桔皮",
+   "base12": 737,
+   "share": 2.3,
+   "pots_cur": 0,
+   "pots_prev": 50
+  },
+  {
+   "料號": "D0121",
+   "品項": "顆粒花生醬(1*12KG)",
+   "base12": 636,
+   "share": 2.0,
+   "pots_cur": 42,
+   "pots_prev": 63
+  },
+  {
+   "料號": "D0330",
+   "品項": "藍莓餡(1*6KG)",
+   "base12": 636,
+   "share": 2.0,
+   "pots_cur": 12,
+   "pots_prev": 8
+  }
+ ],
+ "core_window": "2025/09–2026/08",
  "newbies": [
   {
    "料號": "D2233",
@@ -1448,10 +1452,10 @@
     "品項": "＃1花生(粒)(1*2.8kg)",
     "core": true,
     "tag": null,
-    "hints": [],
-    "then": "136 鍋（基準 232，流失 96）",
-    "now": 40,
-    "status": "持續下滑",
+    "then": "136 鍋（比較基準 232，流失 96）",
+    "same": 68,
+    "now": 32,
+    "status": "持續下滑（較上月同期 -53%）",
     "cls": "bad"
    },
    {
@@ -1460,8 +1464,8 @@
     "品項": "草莓醬(1*6kg)",
     "core": true,
     "tag": null,
-    "hints": [],
-    "then": "24 鍋（基準 92，流失 68）",
+    "then": "24 鍋（比較基準 92，流失 68）",
+    "same": 0,
     "now": 0,
     "status": "本月尚未生產",
     "cls": "mid"
@@ -1472,11 +1476,11 @@
     "品項": "大圓草莓-新",
     "core": true,
     "tag": null,
-    "hints": [],
-    "then": "76 鍋（基準 132，流失 56）",
-    "now": 130,
-    "status": "已恢復",
-    "cls": "ok"
+    "then": "76 鍋（比較基準 132，流失 56）",
+    "same": 40,
+    "now": 104,
+    "status": "回升中（較上月同期 +160%）",
+    "cls": "mid"
    },
    {
     "kind": "A級衰退",
@@ -1484,26 +1488,10 @@
     "品項": "藍莓餡(1*6KG)",
     "core": true,
     "tag": null,
-    "hints": [
-     {
-      "料號": "D0331",
-      "品項": "藍莓餡(1*6KG)",
-      "gain": 4
-     },
-     {
-      "料號": "D0630",
-      "品項": "藍莓餡(1*6KG)",
-      "gain": 6
-     },
-     {
-      "料號": "D1130",
-      "品項": "藍莓餡(1*6kg)",
-      "gain": 16
-     }
-    ],
-    "then": "8 鍋（基準 48，流失 40）",
-    "now": 15,
-    "status": "回升中",
+    "then": "8 鍋（比較基準 48，流失 40）",
+    "same": 8,
+    "now": 12,
+    "status": "回升中（較上月同期 +50%）",
     "cls": "mid"
    },
    {
@@ -1512,8 +1500,8 @@
     "品項": "芒果蜜桃醬(含桃丁)",
     "core": false,
     "tag": null,
-    "hints": [],
-    "then": "0 鍋（基準 42，流失 42）",
+    "then": "0 鍋（比較基準 42，流失 42）",
+    "same": 0,
     "now": 0,
     "status": "本月尚未生產",
     "cls": "mid"
@@ -1524,32 +1512,11 @@
     "品項": "藍莓餡(1*6Kg)",
     "core": false,
     "tag": null,
-    "hints": [
-     {
-      "料號": "D0330",
-      "品項": "藍莓餡(1*6KG)",
-      "gain": 4
-     },
-     {
-      "料號": "D0331",
-      "品項": "藍莓餡(1*6KG)",
-      "gain": 4
-     },
-     {
-      "料號": "D0630",
-      "品項": "藍莓餡(1*6KG)",
-      "gain": 6
-     },
-     {
-      "料號": "D1130",
-      "品項": "藍莓餡(1*6kg)",
-      "gain": 16
-     }
-    ],
-    "then": "11 鍋（基準 44，流失 33）",
-    "now": 10,
-    "status": "未改善",
-    "cls": "mid"
+    "then": "11 鍋（比較基準 44，流失 33）",
+    "same": 11,
+    "now": 8,
+    "status": "持續下滑（較上月同期 -27%）",
+    "cls": "bad"
    },
    {
     "kind": "B級衰退",
@@ -1557,8 +1524,8 @@
     "品項": "＃1藍莓(1*3.2kg)",
     "core": false,
     "tag": null,
-    "hints": [],
-    "then": "0 鍋（基準 32，流失 32）",
+    "then": "0 鍋（比較基準 32，流失 32）",
+    "same": 0,
     "now": 0,
     "status": "本月尚未生產",
     "cls": "mid"
@@ -1569,8 +1536,8 @@
     "品項": "＃1花生(粒)(1*2.8kg)",
     "core": false,
     "tag": null,
-    "hints": [],
     "then": "0 鍋（前期月均 54）",
+    "same": 0,
     "now": 0,
     "status": "本月尚未生產",
     "cls": "mid"
@@ -1581,14 +1548,8 @@
     "品項": "草莓餡(1*6KG)",
     "core": false,
     "tag": null,
-    "hints": [
-     {
-      "料號": "D0111",
-      "品項": "草莓餡(1*6Kg)",
-      "gain": 16
-     }
-    ],
     "then": "0 鍋（前期月均 48）",
+    "same": 0,
     "now": 0,
     "status": "本月尚未生產",
     "cls": "mid"
@@ -1599,8 +1560,8 @@
     "品項": "蜜餞水果(1*1kg)",
     "core": false,
     "tag": null,
-    "hints": [],
     "then": "0 鍋（前期月均 39）",
+    "same": 0,
     "now": 0,
     "status": "本月尚未生產",
     "cls": "mid"
@@ -1611,14 +1572,13 @@
     "品項": "草莓餡(1*6Kg)",
     "core": false,
     "tag": null,
-    "hints": [],
     "then": "0 鍋（前期月均 26）",
-    "now": 20,
+    "same": 0,
+    "now": 16,
     "status": "恢復生產",
     "cls": "ok"
    }
-  ],
-  "projected": true
+  ]
  },
  "kg_coverage": 77.0,
  "kg_pending": false,

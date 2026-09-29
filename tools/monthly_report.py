@@ -21,7 +21,6 @@ import os
 import re
 import statistics
 import sys
-import unicodedata
 import zipfile
 from datetime import date, datetime
 from xml.etree import ElementTree as ET
@@ -218,16 +217,6 @@ def roll(recs, cap_day=None):
     return pots, kg, nokg
 
 
-def norm_name(s):
-    """改版提示用：全形轉半形、忽略大小寫與空白。"""
-    return re.sub(r'\s+', '', unicodedata.normalize('NFKC', str(s))).casefold()
-
-
-def base_code(code):
-    """改版提示用：去掉料號的改版後綴（B3011-1 → B3011）。"""
-    return re.sub(r'-\d+$', '', code or '')
-
-
 # ────────────────────────── 分析 ──────────────────────────
 def r1(v):
     return None if v is None else round(v, 1)
@@ -301,7 +290,9 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
 
     # 主力品項排名時排除季節性代工與已下市品項
     rank_pool = [k for k in keys if k not in oem_keys and k not in dropped_keys]
-    core_keys = set(sorted(rank_pool, key=lambda k: -baseline[k])[:cfg['top_n']])
+    core_ranked = sorted(rank_pool, key=lambda k: -baseline[k])[:cfg['top_n']]
+    core_keys = set(core_ranked)
+    pool_total = sum(baseline[k] for k in rank_pool)
 
     dec = float(cfg['decline_pct'])
     scale = float(cfg['min_scale_pots'])
@@ -320,28 +311,6 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     judge_total = ex_pots if has_oem else tot_pots
     judge_mom = ex_mom if has_oem else mom_pct_total
     judge_yoy = ex_yoy_pct if has_oem else yoy_pct_total
-
-    # ── 改版提示（E2）：同名或同料號系列、且本月鍋數增加的其他料號 ──
-    # 系統不判斷是否為同一產品，只提示讀者「可能為改版轉移」。
-    by_name, by_base = {}, {}
-    for k in keys:
-        by_name.setdefault(norm_name(meta[k]['品項']), set()).add(k)
-        code = meta[k]['料號']
-        if code and code not in PLACEHOLDER_CODES:
-            by_base.setdefault(base_code(code), set()).add(k)
-
-    def sibling_hints(k):
-        sibs = set(by_name.get(norm_name(meta[k]['品項']), set()))
-        code = meta[k]['料號']
-        if code and code not in PLACEHOLDER_CODES:
-            sibs |= by_base.get(base_code(code), set())
-        sibs.discard(k)
-        out = []
-        for j in sorted(sibs):
-            gain = P(j, cur) - P(j, prev)
-            if gain > 0:
-                out.append({'料號': meta[j]['料號'], '品項': meta[j]['品項'], 'gain': round(gain)})
-        return out
 
     # ── 接單下滑警示 ──
     # 分級只看鍋數；重量變化僅作參考（製程條件改變也會讓重量變動），不再用來降級或排除。
@@ -387,7 +356,6 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             'core': k in core_keys,
             'tag': ov[k]['label'] if k in ov else None,
             'oem': k in oem_keys,
-            'hints': sibling_hints(k),
         })
 
     # ── 斷單（前 N 個月常態生產、本月掛零）──
@@ -426,7 +394,6 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             'suspect_lost': (not preview) and gap >= lost_months,
             'core': k in core_keys,
             'tag': ov[k]['label'] if k in ov else None,
-            'hints': sibling_hints(k),
         })
     dormant.sort(key=lambda d: -d['avg_pots'])
     dormant_keys = {d['key'] for d in dormant}
@@ -697,22 +664,36 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     tracking = None
     if with_tracking and prev in month_counts:
         Rp = compute(full, full, meta, month_counts, prev[0], prev[1], cfg, None, False)
-        factor = preview['factor'] if preview else 1.0
         items = []
 
-        def now_of(k):
-            return P(k, cur) * factor
+        def status_prev(k, ref_v):
+            """期中預覽：只用實際值——本月至今 vs 上月同期（不做推估）。"""
+            now, same = P(k, cur), P(k, prev)
+            if ref_v and now >= 0.9 * ref_v:
+                return '已恢復（本月至今已達基準）', 'ok'
+            if now == 0:
+                return '本月尚未生產', 'mid'
+            if same == 0:
+                return '回升中（上月同期為 0）', 'mid'
+            r = (now / same - 1) * 100
+            if r >= 10:
+                return '回升中（較上月同期 +%.0f%%）' % r, 'mid'
+            if r <= -10:
+                return '持續下滑（較上月同期 %.0f%%）' % r, 'bad'
+            return '與上月同期持平', 'mid'
 
         for a in Rp['alerts']:
             if a['grade'] not in ('A', 'B'):
                 continue
             k = a['key']
             ref_v = a['pots_prev'] if a['basis'] == 'MoM' else a['pots_yoy']
-            last, now = a['pots_cur'], now_of(k)
-            if now >= 0.9 * ref_v:
+            last, now = a['pots_cur'], P(k, cur)
+            if preview:
+                st, cls = status_prev(k, ref_v)
+            elif now >= 0.9 * ref_v:
                 st, cls = '已恢復', 'ok'
             elif now == 0:
-                st, cls = ('本月尚未生產', 'mid') if preview else ('轉為斷單', 'bad')
+                st, cls = '轉為斷單', 'bad'
             elif now > last * 1.1:
                 st, cls = '回升中', 'mid'
             elif now < last * 0.9:
@@ -720,13 +701,12 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             else:
                 st, cls = '未改善', 'mid'
             items.append({'kind': '%s級衰退' % a['grade'], '料號': a['料號'], '品項': a['品項'],
-                          'core': a['core'], 'tag': a.get('tag'), 'hints': sibling_hints(k),
-                          'then': '%s 鍋（基準 %s，流失 %s）' % (
+                          'core': a['core'], 'tag': a.get('tag'),
+                          'then': '%s 鍋（比較基準 %s，流失 %s）' % (
                               '{:,}'.format(last), '{:,}'.format(ref_v), '{:,}'.format(a['loss'])),
-                          'now': round(now), 'status': st, 'cls': cls})
+                          'same': round(P(k, prev)), 'now': round(now), 'status': st, 'cls': cls})
         for d in Rp['dormant']:
             k = d['key']
-            now = now_of(k)
             if P(k, cur) > 0:
                 st, cls = '恢復生產', 'ok'
             elif preview:
@@ -735,9 +715,9 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
                 g = d['gap_months'] + 1
                 st, cls = '持續斷單（連續 %d 月）' % g, 'bad'
             items.append({'kind': '斷單', '料號': d['料號'], '品項': d['品項'],
-                          'core': d['core'], 'tag': d.get('tag'), 'hints': sibling_hints(k),
+                          'core': d['core'], 'tag': d.get('tag'),
                           'then': '0 鍋（前期月均 %s）' % '{:,}'.format(d['avg_pots']),
-                          'now': round(now), 'status': st, 'cls': cls})
+                          'same': round(P(k, prev)), 'now': round(P(k, cur)), 'status': st, 'cls': cls})
         for x in Rp['anomalies']:
             k = x['key']
             if kg_pending:
@@ -751,9 +731,8 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             items.append({'kind': '資料異常', '料號': x['料號'], '品項': x['品項'],
                           'core': False, 'tag': x.get('tag'),
                           'then': '%s（%s 鍋／%s kg）' % (x['kind'], '{:,}'.format(x['pots']), '{:,}'.format(x['kg'])),
-                          'now': round(now_of(k)), 'status': st, 'cls': cls})
-        tracking = {'month': Rp['month'], 'items': items,
-                    'projected': bool(preview)}
+                          'same': round(P(k, prev)), 'now': round(P(k, cur)), 'status': st, 'cls': cls})
+        tracking = {'month': Rp['month'], 'items': items}
 
     return {
         'month': mlabel(Y, M), 'year': Y, 'mon': M,
@@ -770,7 +749,6 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             'kg_mom_pct': r1(pct(tot_kg, tot_kg_prev)), 'kg_yoy_pct': r1(pct(tot_kg, tot_kg_yoy)),
             'ytd': round(ytd), 'ytd_prev': round(ytd_prev), 'ytd_pct': r1(pct(ytd, ytd_prev)),
             'ytd_kg': round(ytd_kg), 'ytd_kg_prev': round(ytd_kg_prev),
-            'projected': round(tot_pots * preview['factor']) if preview else None,
         },
         'ex_oem': None if not has_oem else {
             'pots': round(ex_pots), 'prev': round(ex_prev), 'yoy': round(ex_yoy_v),
@@ -788,6 +766,11 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
         'real_alert_count': grade_counts['A'] + grade_counts['B'],
         'core_real': a_alerts,
         'dormant': dormant, 'growth': growth[:cfg['top_n']],
+        'core_items': [{'料號': meta[k]['料號'], '品項': meta[k]['品項'], 'base12': round(baseline[k]),
+                        'share': round(baseline[k] / pool_total * 100, 1) if pool_total else 0,
+                        'pots_cur': round(P(k, cur)), 'pots_prev': round(P(k, prev))}
+                       for k in core_ranked],
+        'core_window': '%s–%s' % (mlabel(*base_window[-1]), mlabel(*base_window[0])),
         'newbies': newbies, 'returning': returning,
         'top_items': top_list, 'top_share': top_share,
         'categories': cats, 'same_month': same_month,
@@ -858,18 +841,14 @@ GRADE_BADGE = {
 }
 
 
-def item_cell(x, hint_word='本月'):
-    """品項欄：主力／註記標籤 + 品名 + 料號 + 改版提示。"""
+def item_cell(x):
+    """品項欄：主力／註記標籤 + 品名 + 料號。"""
     tags = ''
     if x.get('core'):
         tags += '<span class="tag t-core">主力</span> '
     if x.get('tag'):
         tags += '<span class="tag t-note">%s</span> ' % esc(x['tag'])
-    hints = ''.join(
-        '<div class="hint">↪ 同名／同系列料號 %s %s +%s 鍋，可能為改版轉移</div>' % (
-            esc(h['料號']), hint_word, fmt(h['gain']))
-        for h in x.get('hints') or [])
-    return '%s%s<div class="sub">%s</div>%s' % (tags, esc(x['品項']), esc(x['料號']), hints)
+    return '%s%s<div class="sub">%s</div>' % (tags, esc(x['品項']), esc(x['料號']))
 
 
 def alert_rows(R, grades, empty_msg):
@@ -928,16 +907,26 @@ TRACK_BADGE = {'ok': 't-green', 'mid': 't-amber', 'bad': 't-red'}
 
 def tracking_rows(R):
     tr = R.get('tracking')
+    pv = R.get('preview')
     if not tr or not tr['items']:
-        return '<tr><td colspan="5" class="empty">上期沒有需追蹤的事項</td></tr>'
+        return '<tr><td colspan="%d" class="empty">上期沒有需追蹤的事項</td></tr>' % (6 if pv else 5)
     order = {'bad': 0, 'mid': 1, 'ok': 2}
     items = sorted(tr['items'], key=lambda i: order.get(i['cls'], 3))
     return '\n'.join(
-        '<tr><td>%s</td><td>%s</td><td>%s</td><td class="num">%s</td>'
+        '<tr><td>%s</td><td>%s</td><td>%s</td>%s<td class="num">%s</td>'
         '<td><span class="tag %s">%s</span></td></tr>' % (
-            esc(i['kind']), item_cell(i), esc(i['then']), fmt(i['now']),
-            TRACK_BADGE.get(i['cls'], 't-grey'), esc(i['status']))
+            esc(i['kind']), item_cell(i), esc(i['then']),
+            '<td class="num">%s</td>' % fmt(i.get('same', 0)) if pv else '',
+            fmt(i['now']), TRACK_BADGE.get(i['cls'], 't-grey'), esc(i['status']))
         for i in items)
+
+
+def core_rows(R):
+    return '\n'.join(
+        '<tr><td class="num">%d</td><td>%s<div class="sub">%s</div></td><td class="num">%s</td>'
+        '<td class="num">%s%%</td><td class="num">%s</td></tr>' % (
+            i + 1, esc(c['品項']), esc(c['料號']), fmt(c['base12']), c['share'], fmt(c['pots_cur']))
+        for i, c in enumerate(R.get('core_items') or []))
 
 
 def growth_rows(R):
@@ -984,54 +973,62 @@ TPL = r"""<!DOCTYPE html>
 --sh:0 1px 3px rgba(15,23,42,.06);--mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 --font:'Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;}
-.wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.65;font-size:15px;}
+.wrap{max-width:1240px;margin:0 auto;padding:26px 22px 60px;}
 header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
-h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
-.sub{font-size:12px;color:var(--t3);}
-.light{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;font-weight:700;font-size:14px;}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em;}
+.sub{font-size:13.5px;color:var(--t3);}
+.light{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;font-weight:700;font-size:16px;}
 .light.red{background:#fee2e2;color:#991b1b;} .light.yellow{background:#fef3c7;color:#92400e;} .light.green{background:#dcfce7;color:#166534;}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);margin-bottom:18px;}
-.card h2{font-size:16px;margin:0 0 3px;} .card .csub{font-size:11.5px;color:var(--t3);margin-bottom:14px;}
+.card h2{font-size:19px;margin:0 0 4px;} .card .csub{font-size:13.5px;color:var(--t3);margin-bottom:14px;line-height:1.6;}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;box-shadow:var(--sh);position:relative;overflow:hidden;}
 .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#1d4ed8,#6366f1);}
-.kpi .lab{font-size:12px;color:var(--t3);margin-bottom:6px;}
-.kpi .val{font-size:26px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1;}
-.kpi .dlt{font-size:11.5px;margin-top:5px;font-family:var(--mono);color:var(--t3);}
+.kpi .lab{font-size:14px;color:var(--t3);margin-bottom:6px;}
+.kpi .val{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1;}
+.kpi .dlt{font-size:13.5px;margin-top:5px;font-family:var(--mono);color:var(--t3);}
 .up{color:var(--green);} .dn{color:var(--red);} .flat{color:var(--t4);}
-.note{padding:11px 15px;border-radius:9px;font-size:13px;margin-bottom:18px;}
+.note{padding:12px 16px;border-radius:9px;font-size:14.5px;margin-bottom:18px;}
 .note.warn{background:#fef3c7;border:1px solid #f6d68a;color:#92400e;}
 .note.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
-.note.preview{background:#fff7ed;border:2px solid #fb923c;color:#9a3412;font-size:13.5px;}
-.hint{font-size:11px;color:#b45309;margin-top:2px;}
+.note.preview{background:#fff7ed;border:2px solid #fb923c;color:#9a3412;font-size:15px;line-height:1.7;}
 tr.g-A{background:#fff7f7;}
-details.more{margin-top:12px;} details.more summary{cursor:pointer;font-size:12.5px;color:var(--blue);padding:6px 0;}
+.glossary summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;}
+.glossary summary::-webkit-details-marker{display:none;}
+.glossary summary h2{display:inline;margin:0;}
+.gl-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:26px;margin-top:14px;}
+.gl-grid h3{font-size:16px;margin:16px 0 6px;} .gl-grid h3:first-child{margin-top:0;}
+.gl-grid p,.gl-grid li{font-size:15px;color:var(--t2);margin:4px 0;}
+.gl-grid ul{margin:4px 0 8px;padding-left:22px;}
+table.gl td{border-bottom:1px solid var(--border);padding:8px 8px;vertical-align:top;}
+table.gl td:first-child{width:70px;}
+details.more{margin-top:12px;} details.more summary{cursor:pointer;font-size:14.5px;color:var(--blue);padding:6px 0;}
 .hero{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
 .hero .big{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;}
-.hero .cmp{font-size:13px;color:var(--t3);font-family:var(--mono);}
-table{width:100%;border-collapse:collapse;font-size:13px;}
+.hero .cmp{font-size:15px;color:var(--t3);font-family:var(--mono);}
+table{width:100%;border-collapse:collapse;font-size:15px;}
 th,td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
-th{background:#f8fafc;font-size:11.5px;color:var(--t3);font-weight:600;white-space:nowrap;}
+th{background:#f8fafc;font-size:13.5px;color:var(--t3);font-weight:600;white-space:nowrap;}
 td.num{text-align:right;font-family:var(--mono);white-space:nowrap;}
 th.num{text-align:right;}
-td .sub{font-size:10.5px;color:var(--t4);font-family:var(--mono);}
+td .sub{font-size:12px;color:var(--t4);font-family:var(--mono);}
 td.loss{color:var(--red);font-weight:600;} td.gain{color:var(--green);font-weight:600;}
 tr.row-real{background:#fff7f7;}
 td.empty{text-align:center;color:var(--t4);padding:20px;}
-.tag{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+.tag{display:inline-block;font-size:12.5px;padding:2px 8px;border-radius:20px;white-space:nowrap;}
 .t-red{background:#fee2e2;color:#991b1b;} .t-amber{background:#fef3c7;color:#92400e;}
 .t-grey{background:#f1f5f9;color:#64748b;} .t-core{background:#e0e7ff;color:#3730a3;font-weight:700;}
 .t-blue{background:#dbeafe;color:#1e40af;} .t-green{background:#dcfce7;color:#166534;}
 .t-note{background:#ede9fe;color:#5b21b6;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-.chart{position:relative;height:300px;}
-.chart.tall{height:360px;}
+.chart{position:relative;height:330px;}
+.chart.tall{height:400px;}
 .tbl-wrap{overflow-x:auto;}
-.muted{color:var(--t4);font-size:13px;}
-.narrative p{margin:0 0 11px;font-size:14px;color:var(--t2);}
-footer{margin-top:26px;font-size:11.5px;color:var(--t4);line-height:1.8;}
-@media(max-width:860px){.kpis{grid-template-columns:1fr 1fr;}.g2{grid-template-columns:1fr;}.wrap{padding:16px 13px 44px;}}
+.muted{color:var(--t4);font-size:14px;}
+.narrative p{margin:0 0 13px;font-size:16px;line-height:1.8;color:var(--t2);}
+footer{margin-top:26px;font-size:13px;color:var(--t4);line-height:1.8;}
+@media(max-width:860px){.kpis{grid-template-columns:1fr 1fr;}.g2{grid-template-columns:1fr;}.gl-grid{grid-template-columns:1fr;}.wrap{padding:16px 13px 44px;}}
 @media print{body{background:#fff}.card{break-inside:avoid}}
 </style>
 </head>
@@ -1066,11 +1063,50 @@ __WARN__
   __SEASON__
 </div>
 
+<div class="card glossary">
+  <details>
+  <summary><h2>📖 名詞說明：主力品項、A／B／C 級、衰退與斷單怎麼判定？</h2><span class="muted">（點開查看）</span></summary>
+  <div class="gl-grid">
+    <div>
+      <h3>接單下滑警示的觸發條件</h3>
+      <p>品項鍋數符合以下任一條件，就列入警示：</p>
+      <ul>
+        <li>較<strong>__PREV_WORD__</strong>減少 ≥ __DECLINE__%，且__PREV_WORD__ ≥ __SCALE__ 鍋</li>
+        <li>較<strong>__YOY_WORD__</strong>減少 ≥ __DECLINE__%，且__YOY_WORD__ ≥ __SCALE__ 鍋</li>
+      </ul>
+      <p>「≥ __SCALE__ 鍋」是為了排除零星小量品項的雜訊。<strong>流失鍋數</strong>取兩者中減少較多的那一個。</p>
+      <h3>警示分級（只看鍋數）</h3>
+      <table class="gl">
+        <tr><td><span class="tag t-red">A 主力</span></td><td>觸發警示的品項屬於<strong>主力品項</strong>（右表）。不設門檻，一律列出。</td></tr>
+        <tr><td><span class="tag t-amber">B</span></td><td>非主力品項，流失 ≥ <strong>__BTHR__ 鍋</strong>（本業總鍋數的 __BPCT__%，會隨淡旺季自動調整）。</td></tr>
+        <tr><td><span class="tag t-grey">C</span></td><td>非主力、流失 &lt; __BTHR__ 鍋。影響小，預設收合。</td></tr>
+        <tr><td><span class="tag t-note">註</span></td><td>季節性代工品項（化應子）。量大且間歇，另列、不分級、不影響燈號。</td></tr>
+      </table>
+      <h3>__DORMANT_TITLE__</h3>
+      <p>__DORMANT_SUB__</p>
+      <h3>綜合燈號</h3>
+      <p>🔴 本業較__YOY_WORD__減少 ≥ __DECLINE__%，或主力品項斷單__REDGAP__，或 A 級流失合計 ≥ 本業總鍋數的 __REDPCT__%<br>
+         🟡 有 A 級衰退但未達紅燈，或總量小幅衰退　🟢 總量未衰退且無主力警示</p>
+      <p class="muted">「本業」＝全廠扣除季節性代工品項。</p>
+    </div>
+    <div>
+      <h3>主力品項（__CORE_N__ 項）</h3>
+      <p>依<strong>前 12 個月（__CORE_WINDOW__）累計鍋數</strong>排名前 __CORE_N__ 名，排除季節性代工與已下市品項。
+         用前 12 個月而不用本月排名，才不會因為本月衰退就跌出主力名單。每月自動更新。</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th class="num">#</th><th>品項</th><th class="num">12 個月鍋數</th><th class="num">占比</th><th class="num">__CUR_COL__</th></tr></thead>
+        <tbody>__CORE_ROWS__</tbody>
+      </table></div>
+    </div>
+  </div>
+  </details>
+</div>
+
 <div class="card">
   <h2>上期追蹤 — __TRACK_MONTH__ 點名事項</h2>
   <div class="csub">__TRACK_SUB__</div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>類型</th><th>品項</th><th>上期狀況</th><th class="num">__TRACK_NOW__</th><th>本月狀態</th></tr></thead>
+    <thead><tr><th>類型</th><th>品項</th><th>上期狀況</th>__TRACK_SAME_TH__<th class="num">__TRACK_NOW__</th><th>本月狀態</th></tr></thead>
     <tbody>__TRACK_ROWS__</tbody>
   </table></div>
 </div>
@@ -1109,9 +1145,7 @@ __WARN__
 
 <div class="card">
   <h2>接單下滑警示明細（分級）</h2>
-  <div class="csub">觸發條件：較__PREV_WORD__或__YOY_WORD__降幅 ≥ __DECLINE__% 且基準量 ≥ __SCALE__ 鍋。
-    <strong>A 級</strong>＝主力品項（不設門檻）｜<strong>B 級</strong>＝非主力且流失 ≥ __BTHR__ 鍋（本業總鍋數的 __BPCT__%）｜<strong>C 級</strong>＝其餘，預設收合｜<strong>註</strong>＝季節性代工。
-    分級只看鍋數；「重量參考」欄僅供參考，不影響分級。</div>
+  <div class="csub"><strong>A 級</strong>＝主力品項｜<strong>B 級</strong>＝非主力且流失 ≥ __BTHR__ 鍋｜<strong>C 級</strong>＝其餘，預設收合｜<strong>註</strong>＝季節性代工。判定方式見上方「📖 名詞說明」。「重量參考」欄僅供參考，不影響分級。</div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>等級</th><th>品項</th><th class="num">__CUR_COL__</th><th class="num">__PREV_COL__</th><th class="num">__YOY_COL__</th>
       <th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>重量參考</th></tr></thead>
@@ -1142,7 +1176,7 @@ __WARN__
 <div class="g2">
   <div class="card"><h2>成長品項 Top __TOPN__</h2><div class="csub">依鍋數增加量排序</div>
     <div class="chart"><canvas id="growthChart"></canvas></div></div>
-  <div class="card"><h2>主力集中度（Pareto）</h2><div class="csub">前 __TOPN__ 大品項鍋數與累積佔比</div>
+  <div class="card"><h2>產量集中度（Pareto）</h2><div class="csub">本月前 __TOPN__ 大品項鍋數與累積佔比</div>
     <div class="chart"><canvas id="paretoChart"></canvas></div></div>
 </div>
 
@@ -1164,7 +1198,8 @@ __WARN__
 </div>
 
 <div class="card">
-  <h2>本月主力品項</h2>
+  <h2>本月產量前 __TOPN__ 大品項</h2>
+  <div class="csub">依本月鍋數排名（與「主力品項」不同：主力品項是依前 12 個月累計排名，見上方名詞說明）</div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>品項</th><th class="num">鍋數</th><th class="num">佔比</th><th class="num">累積佔比</th></tr></thead>
     <tbody>__TOP_ROWS__</tbody>
@@ -1183,17 +1218,18 @@ __WARN__
 <script>
 const R = __DATA__;
 const C = {blue:'#1d4ed8', amber:'#b45309', teal:'#0f766e', red:'#dc2626', green:'#16a34a', grey:'#94a3b8'};
-const grid = {color:'#eef2f7'}, tick = {color:'#64748b', font:{size:11}};
+const grid = {color:'#eef2f7'}, tick = {color:'#475569', font:{size:13}};
+Chart.defaults.font.size = 13;
 const baseOpts = (extra) => Object.assign({
   responsive:true, maintainAspectRatio:false,
   interaction:{mode:'index', intersect:false},
-  plugins:{legend:{labels:{color:'#334155', font:{size:12}, usePointStyle:true, pointStyle:'circle'}}}
+  plugins:{legend:{labels:{color:'#334155', usePointStyle:true, pointStyle:'circle', font:{size:13.5}}}}
 }, extra || {});
 const hOpts = () => ({
   responsive:true, maintainAspectRatio:false, indexAxis:'y',
   interaction:{mode:'index', intersect:false, axis:'y'},
-  plugins:{legend:{labels:{color:'#334155', font:{size:12}, usePointStyle:true, pointStyle:'circle'}}},
-  scales:{x:{grid:grid, ticks:tick, beginAtZero:true}, y:{grid:{display:false}, ticks:{color:'#0f172a', font:{size:11}}}}
+  plugins:{legend:{labels:{color:'#334155', usePointStyle:true, pointStyle:'circle', font:{size:13.5}}}},
+  scales:{x:{grid:grid, ticks:tick, beginAtZero:true}, y:{grid:{display:false}, ticks:{color:'#0f172a', font:{size:13}}}}
 });
 const shortName = (s) => s.length > 16 ? s.slice(0,16)+'…' : s;
 
@@ -1206,8 +1242,8 @@ new Chart(document.getElementById('trendChart'), {
   ]},
   options: baseOpts({scales:{
     x:{grid:grid, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
-    y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:11}}},
-    y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:11}}}
+    y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}},
+    y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:13}}}
   }})
 });
 
@@ -1221,8 +1257,8 @@ new Chart(document.getElementById('cmpChart'), {
   ]},
   options: baseOpts({scales:{
     x:{grid:{display:false}, ticks:tick},
-    y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:11}}},
-    y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:11}}}
+    y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}},
+    y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:13}}}
   }})
 });
 
@@ -1298,7 +1334,7 @@ new Chart(document.getElementById('paretoChart'), {
         label:(ctx)=>{const d=deltas[ctx.dataIndex]; const v=ctx.raw;
           return d===null ? '合計 '+(v[1]).toLocaleString()+' 鍋' : (d>0?'+':'')+d.toLocaleString()+' 鍋';}}}},
       scales:{x:{grid:{display:false}, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
-              y:{grid:grid, ticks:tick, min:yMin, title:{display:true, text:'鍋數', color:'#64748b', font:{size:11}}}}}
+              y:{grid:grid, ticks:tick, min:yMin, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}}}}
   });
 })();
 
@@ -1312,7 +1348,7 @@ new Chart(document.getElementById('paretoChart'), {
     borderWidth:2, borderDash:[5,4], pointRadius:2, tension:.2});
   new Chart(document.getElementById('ytdChart'), {type:'line', data:{labels:S.labels, datasets:ds},
     options: baseOpts({scales:{x:{grid:{display:false}, ticks:tick},
-      y:{grid:grid, ticks:tick, beginAtZero:true, title:{display:true, text:'累計鍋數', color:'#64748b', font:{size:11}}}}})});
+      y:{grid:grid, ticks:tick, beginAtZero:true, title:{display:true, text:'累計鍋數', color:'#64748b', font:{size:13}}}}})});
 })();
 
 // 7. 類別
@@ -1343,7 +1379,7 @@ def build_html(R, narrative):
     if pv:
         warn = ('<div class="note preview">⏳ <strong>期中預覽 — 本月尚未結束，非正式月報</strong>：'
                 '資料截至 <strong>%s</strong>（第 %d 天／共 %d 天）。所有比較皆採「同期」口徑'
-                '（本月 %s 對比上月 %s、去年 %s）；推估全月為依日曆天等比例換算，僅供參考。'
+                '（本月 %s 對比上月 %s、去年 %s），數字皆為實際值、不做推估。'
                 '斷單與燈號皆為暫定，正式結論以下月初的正式月報為準。%s</div>' % (
                     pv['asof'], pv['day'], pv['days_in_month'], pv['cur_period'],
                     pv['prev_period'], pv['yoy_period'],
@@ -1393,7 +1429,7 @@ def build_html(R, narrative):
         header_sub = '期中預覽｜資料截至 %s　｜　與上月同期（%s）、去年同期（%s）比較' % (
             pv['asof'], pv['prev_period'], pv['yoy_period'])
         cur_word = '本月至今'
-        proj = '<div class="dlt">推估全月約 %s 鍋（僅供參考）</div>' % fmt(t['projected'])
+        proj = ''
         cmp_title = '本月至今 vs 上月同期 vs 去年同期'
         season_period = '' if pv['full_month'] else '，1–%d 日同期' % pv['day']
     else:
@@ -1422,7 +1458,9 @@ def build_html(R, narrative):
         track_sub = ('依現行規則，%s 列為 A／B 級衰退、斷單或資料異常的品項，在本月的狀態（需處理的排在最前面）。'
                      '「已恢復」＝回到當時比較基準的 90%% 以上。' % tr['month'])
         if pv:
-            track_sub += '本月數字為依進度推估的全月量，狀態為暫定。'
+            track_sub = ('依現行規則，%s 列為 A／B 級衰退、斷單或資料異常的品項，在本月的狀態（需處理的排在最前面）。'
+                         '本月尚未結束，以「本月至今」與「上月同期」的實際鍋數比較；'
+                         '本月至今已達當時比較基準 90%% 以上者列為「已恢復」。' % tr['month'])
     else:
         track_month, track_sub = R['prev_label'], '資料中沒有上月紀錄，無法追蹤。'
 
@@ -1498,7 +1536,10 @@ def build_html(R, narrative):
         '__PREV_WORD__': prev_word, '__YOY_WORD__': yoy_word, '__CMP_TITLE__': cmp_title,
         '__SEASON_PERIOD__': season_period, '__SEASON_SAMPLE__': esc(R.get('seasonal_sample') or ''),
         '__TRACK_MONTH__': track_month, '__TRACK_SUB__': track_sub,
-        '__TRACK_NOW__': '本月（推估）' if pv else '本月',
+        '__TRACK_NOW__': '本月至今' if pv else '本月',
+        '__TRACK_SAME_TH__': '<th class="num">上月同期</th>' if pv else '',
+        '__CORE_ROWS__': core_rows(R), '__CORE_WINDOW__': esc(R.get('core_window') or ''),
+        '__CORE_N__': str(len(R.get('core_items') or [])),
         '__TRACK_ROWS__': tracking_rows(R),
         '__WF_SUB__': wf_sub,
         '__YTD_POTS__': fmt(yb['pots']), '__YTD_PCT__': pct_span(yb['pct']),
@@ -1560,21 +1601,21 @@ def build_index():
 <style>
 body{margin:0;background:#f6f7f9;color:#0f172a;font-family:'Noto Sans TC',-apple-system,'Segoe UI',sans-serif;}
 .wrap{max-width:820px;margin:0 auto;padding:34px 20px 60px;}
-h1{font-size:22px;margin:0 0 4px;} .sub{font-size:12.5px;color:#64748b;margin-bottom:22px;}
-.row{display:grid;grid-template-columns:88px 110px 1fr auto;gap:14px;align-items:center;
+h1{font-size:26px;margin:0 0 6px;} .sub{font-size:15px;color:#64748b;margin-bottom:22px;line-height:1.6;}
+.row{display:grid;grid-template-columns:110px 130px 1fr auto;gap:14px;align-items:center;
  background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:14px 17px;margin-bottom:10px;
  text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(15,23,42,.05);}
 .row:hover{border-color:#1d4ed8;}
 .row.preview{border:2px dashed #fb923c;background:#fffaf5;}
-.pv{font-size:10.5px;font-weight:600;color:#c2410c;font-family:'Noto Sans TC',sans-serif;line-height:1.35;margin-top:3px;}
-.m{font-family:ui-monospace,monospace;font-weight:700;font-size:15px;}
-.light{font-size:11.5px;padding:3px 9px;border-radius:20px;text-align:center;white-space:nowrap;}
+.pv{font-size:12.5px;font-weight:600;color:#c2410c;font-family:'Noto Sans TC',sans-serif;line-height:1.35;margin-top:3px;}
+.m{font-family:ui-monospace,monospace;font-weight:700;font-size:18px;}
+.light{font-size:13.5px;padding:4px 10px;border-radius:20px;text-align:center;white-space:nowrap;}
 .light.red{background:#fee2e2;color:#991b1b;}.light.yellow{background:#fef3c7;color:#92400e;}.light.green{background:#dcfce7;color:#166534;}
-.n{font-size:12.5px;color:#334155;font-family:ui-monospace,monospace;}
-.a{font-size:11.5px;color:#64748b;white-space:nowrap;}
+.n{font-size:15px;color:#334155;font-family:ui-monospace,monospace;}
+.a{font-size:13.5px;color:#64748b;white-space:nowrap;}
 .up{color:#16a34a;}.dn{color:#dc2626;}.flat{color:#94a3b8;}
 .muted{color:#94a3b8;font-size:13px;}
-a.back{display:inline-block;margin-bottom:18px;font-size:12.5px;color:#1d4ed8;text-decoration:none;}
+a.back{display:inline-block;margin-bottom:18px;font-size:14.5px;color:#1d4ed8;text-decoration:none;}
 @media(max-width:640px){.row{grid-template-columns:1fr;gap:5px;}}
 </style></head><body><div class="wrap">
 <a class="back" href="../">← 回到儀表板</a>
@@ -1635,7 +1676,7 @@ def main():
         full_month = D >= dim
         preview = {
             'asof': '%d-%02d-%02d' % (Y, M, D), 'day': D, 'days_in_month': dim,
-            'factor': round(dim / D, 4), 'full_month': full_month,
+            'full_month': full_month,
             'cur_period': '%d/1–%d/%d' % (M, M, D),
             'prev_period': '%d/1–%d/%d' % (pm_, pm_, prev_dim if full_month else min(D, prev_dim)),
             'yoy_period': '%d/%d/1–%d/%d' % (Y - 1, M, M, dim if full_month else D),
