@@ -96,7 +96,7 @@ description: 產生「生產鍋數月報」——依 data/latest.xlsx 分析指�
 | `dormant_lost_months` | 3 | 連續未生產 ≥ 此月數 → 疑似流失 |
 | `b_grade_pct` | 1 | B 級：非主力流失 ≥ 本業總鍋數的此百分比（約 30 鍋）|
 | `red_core_loss_pct` | 15 | 紅燈：A 級（主力）流失合計 ≥ 本業總鍋數的此百分比 |
-| `red_core_dormant_months` | 1 | 紅燈：主力品項連續斷單 ≥ 此月數 |
+| `red_core_dormant_months` | 2 | 紅燈：主力品項連續斷單 ≥ 此月數 |
 | `anomaly_*` | 見設定檔 | 資料異常（鍋數與重量不匹配）條件 |
 
 使用者若要調整鬆緊，改這個檔即可，不要改寫程式邏輯。
