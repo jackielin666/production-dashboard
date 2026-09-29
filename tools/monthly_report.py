@@ -641,19 +641,33 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     def ma_of(ks, end):
         return sum(Pf(k, month_add(end[0], end[1], -i)) for k in ks for i in range(ma_n)) / ma_n
 
-    def ma_row(ks, label, code, core):
+    def win_ok(end):
+        # 區間內每個月的資料都完整，才能拿來比較（例：資料從 2024/01 開始、2024/07~08 不完整）
+        return all(month_complete(month_add(end[0], end[1], -i)) for i in range(ma_n))
+
+    def ma_trend(ks):
+        """回傳 (近3月月均, 前3月月均, 去年同期月均, 較前3月%, 較去年同期%, 判讀, 燈色)。"""
+        before_end = month_add(ma_end[0], ma_end[1], -ma_n)
+        ly_end = (ma_end[0] - 1, ma_end[1])
         now = ma_of(ks, ma_end)
-        before = ma_of(ks, month_add(ma_end[0], ma_end[1], -ma_n))
-        ly = ma_of(ks, (ma_end[0] - 1, ma_end[1]))
-        yoy_v, seq_v = pct(now, ly), pct(now, before)
+        before = ma_of(ks, before_end)
+        ly = ma_of(ks, ly_end)
+        seq_v = pct(now, before) if win_ok(before_end) else None
+        if not win_ok(ly_end):
+            return now, before, ly, seq_v, None, '去年同期資料不完整', 'grey'
+        yoy_v = pct(now, ly)
         if yoy_v is None:
-            verdict, cls = '去年同期無資料', 'grey'
+            verdict, cls = '去年同期無生產', 'grey'
         elif yoy_v <= -ma_pct:
             verdict, cls = '趨勢下滑', 'bad'
         elif yoy_v >= ma_pct:
             verdict, cls = '趨勢成長', 'ok'
         else:
             verdict, cls = '趨勢持平', 'mid'
+        return now, before, ly, seq_v, yoy_v, verdict, cls
+
+    def ma_row(ks, label, code, core):
+        now, before, ly, seq_v, yoy_v, verdict, cls = ma_trend(ks)
         months = [month_add(ma_end[0], ma_end[1], -i) for i in range(11, -1, -1)]
         return {
             '品項': label, '料號': code, 'core': core,
@@ -670,6 +684,11 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     def win_label(end):
         st = month_add(end[0], end[1], -(ma_n - 1))
         return '%s–%s' % (mlabel(*st), mlabel(*end))
+    # 配套：每筆接單下滑警示附上該品項的 3 個月趨勢，區分「單月波動」與「趨勢性衰退」
+    for a in alerts:
+        _n, _b, _l, _s, yv, vd, vc = ma_trend([a['key']])
+        a['ma_yoy'], a['ma_verdict'], a['ma_cls'] = r1(yv), vd, vc
+
     ma_block = {
         'rows': ma_rows, 'n': ma_n, 'end': mlabel(*ma_end),
         'window': win_label(ma_end),
@@ -687,6 +706,11 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     if core_dormant:
         reasons.append('%d 項主力品項斷單%s' % (
             len(core_dormant), '' if red_gap <= 1 else '（連續 ≥%d 月）' % red_gap))
+    red_ma = float(cfg.get('red_ma_trend_pct', 10))
+    ma_total_yoy = ma_rows[0]['yoy_pct']
+    if ma_total_yoy is not None and ma_total_yoy <= -red_ma:
+        reasons.append('本業近 %d 個月平均較去年同期 %.1f%%（%s，趨勢性衰退）' % (
+            ma_n, ma_total_yoy, ma_block['window']))
     red_pct = float(cfg.get('red_core_loss_pct', 15))
     if a_alerts and core_loss_pct is not None and core_loss_pct >= red_pct:
         reasons.append('%d 項主力品項衰退，合計流失 %s 鍋（占本業 %.1f%%，達紅燈門檻 %g%%）' % (
@@ -903,15 +927,21 @@ def alert_rows(R, grades, empty_msg):
     for a in R['alerts']:
         if a['grade'] not in grades:
             continue
+        if a.get('ma_verdict'):
+            trend = '<span class="tag %s">%s</span>%s' % (
+                MA_BADGE.get(a.get('ma_cls'), 't-grey'), esc(a['ma_verdict']),
+                '<div class="sub">%s</div>' % pct_txt(a['ma_yoy']) if a.get('ma_yoy') is not None else '')
+        else:
+            trend = '—'
         rows.append(
             '<tr class="g-%s"><td>%s</td><td>%s</td>'
             '<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td>'
-            '<td class="num">%s</td><td class="num">%s</td><td class="num loss">-%s</td><td>%s</td></tr>' % (
+            '<td class="num">%s</td><td class="num">%s</td><td class="num loss">-%s</td><td>%s</td><td>%s</td></tr>' % (
                 a['grade'], GRADE_BADGE[a['grade']], item_cell(a),
                 fmt(a['pots_cur']), fmt(a['pots_prev']), fmt(a['pots_yoy']),
                 pct_span(a['mom_pct']), pct_span(a['yoy_pct']),
-                fmt(a['loss']), VERDICT_BADGE.get(a['verdict'], '')))
-    return '\n'.join(rows) if rows else '<tr><td colspan="9" class="empty">%s</td></tr>' % empty_msg
+                fmt(a['loss']), trend, VERDICT_BADGE.get(a['verdict'], '')))
+    return '\n'.join(rows) if rows else '<tr><td colspan="10" class="empty">%s</td></tr>' % empty_msg
 
 
 def dormant_rows(R):
@@ -1156,7 +1186,7 @@ __WARN__
       <h3>__DORMANT_TITLE__</h3>
       <p>__DORMANT_SUB__</p>
       <h3>綜合燈號</h3>
-      <p>🔴 本業較__YOY_WORD__減少 ≥ __DECLINE__%，或主力品項斷單__REDGAP__，或 A 級流失合計 ≥ 本業總鍋數的 __REDPCT__%<br>
+      <p>🔴 符合任一：本業較__YOY_WORD__減少 ≥ __DECLINE__%；本業<strong>近 3 個月平均</strong>較去年同期減少 ≥ __REDMA__%（趨勢性衰退）；主力品項斷單__REDGAP__；A 級流失合計 ≥ 本業總鍋數的 __REDPCT__%<br>
          🟡 有 A 級衰退但未達紅燈，或總量小幅衰退　🟢 總量未衰退且無主力警示</p>
       <p class="muted">「本業」＝全廠扣除季節性代工品項。</p>
     </div>
@@ -1216,10 +1246,10 @@ __WARN__
 
 <div class="card">
   <h2>接單下滑警示明細（分級）</h2>
-  <div class="csub"><strong>A 級</strong>＝主力品項｜<strong>B 級</strong>＝非主力且流失 ≥ __BTHR__ 鍋｜<strong>C 級</strong>＝其餘，預設收合｜<strong>註</strong>＝季節性代工。判定方式見上方「📖 名詞說明」。「重量參考」欄僅供參考，不影響分級。</div>
+  <div class="csub"><strong>A 級</strong>＝主力品項｜<strong>B 級</strong>＝非主力且流失 ≥ __BTHR__ 鍋｜<strong>C 級</strong>＝其餘，預設收合｜<strong>註</strong>＝季節性代工。判定方式見上方「📖 名詞說明」。<strong>3 個月趨勢</strong>：該品項近 3 個完整月份平均較去年同期（趨勢下滑＝趨勢性衰退，持平／成長＝多為單月排程波動）。「重量參考」欄僅供參考，不影響分級。</div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>等級</th><th>品項</th><th class="num">__CUR_COL__</th><th class="num">__PREV_COL__</th><th class="num">__YOY_COL__</th>
-      <th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>重量參考</th></tr></thead>
+      <th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>3 個月趨勢</th><th>重量參考</th></tr></thead>
     <tbody>__ALERT_ROWS__</tbody>
   </table></div>
   __C_DETAILS__
@@ -1229,7 +1259,7 @@ __WARN__
   <h2>主力品項 3 個月趨勢（移動平均）</h2>
   <div class="csub">單月產量受排程影響波動大，改看<strong>近 3 個月平均月鍋數</strong>（__MA_WIN__）判斷趨勢：
     與去年同期 3 個月（__MA_WIN_LY__）相比 ≤ −__MA_PCT__% 為「趨勢下滑」、≥ +__MA_PCT__% 為「趨勢成長」，可同時排除季節性。__MA_NOTE__
-    小圖：灰色長條為各月鍋數、藍線為 3 個月移動平均（近 12 個月）。僅供參考，不影響警示分級與燈號。</div>
+    小圖：灰色長條為各月鍋數、藍線為 3 個月移動平均（近 12 個月）。<strong>本業合計</strong>較去年同期 ≤ −__REDMA__% 時亮紅燈（趨勢性衰退）；個別品項的趨勢僅供參考，不影響分級。</div>
   <div class="tbl-wrap"><table class="ma">
     <thead><tr><th>品項</th><th>近 12 個月走勢</th><th class="num">近 3 月<br>月均</th><th class="num">前 3 月<br>月均</th>
       <th class="num">較前 3 月</th><th class="num">去年同期<br>月均</th><th class="num">較去年同期</th><th>趨勢判讀</th></tr></thead>
@@ -1293,7 +1323,7 @@ __WARN__
   資料來源：<code>data/latest.xlsx</code> →「資料總表」　｜　分析邏輯與門檻：<code>docs/monthly-report-logic.md</code><br>
   本報告聚焦業務量（鍋數為主、半成品重量交叉驗證）；製成率／品質分析由「產品工時及製成率統計系統」負責，不在本報告範圍。<br>
   警示門檻：降幅 ≥__DECLINE__%、基準量 ≥__SCALE__ 鍋；B 級流失 ≥ 本業總鍋數 __BPCT__%　｜　斷單：前 __LOOKBACK__ 個月 ≥__MINACTIVE__ 月有生產而本月為 0，連續 ≥__LOSTM__ 月列為疑似流失<br>
-  燈號：🔴 本業同比 ≤ −__DECLINE__%、主力品項斷單__REDGAP__，或主力品項流失合計 ≥ 本業 __REDPCT__%　｜　🟡 有主力品項衰退但未達紅燈　｜　🟢 總量未衰退且無主力警示
+  燈號：🔴 本業同比 ≤ −__DECLINE__%、本業近 3 個月平均較去年同期 ≤ −__REDMA__%、主力品項斷單__REDGAP__，或主力品項流失合計 ≥ 本業 __REDPCT__%　｜　🟡 有主力品項衰退但未達紅燈　｜　🟢 總量未衰退且無主力警示
   __ANNOTATED__
 </footer>
 </div>
@@ -1545,7 +1575,7 @@ def build_html(R, narrative):
         c_details = ('<details class="more"><summary>展開 C 級 %d 項（非主力、流失 &lt; %s 鍋）</summary>'
                      '<div class="tbl-wrap"><table><thead><tr><th>等級</th><th>品項</th><th class="num">%s</th>'
                      '<th class="num">%s</th><th class="num">%s</th><th class="num">環比</th><th class="num">同比</th>'
-                     '<th class="num">流失鍋數</th><th>重量參考</th></tr></thead><tbody>%s</tbody></table></div></details>' % (
+                     '<th class="num">流失鍋數</th><th>3 個月趨勢</th><th>重量參考</th></tr></thead><tbody>%s</tbody></table></div></details>' % (
                          gc['C'], fmt(R['b_threshold']), cur_col, prev_col, yoy_col,
                          alert_rows(R, ('C',), '')))
 
@@ -1621,6 +1651,7 @@ def build_html(R, narrative):
         '__DECLINE__': str(cfg['decline_pct']), '__SCALE__': str(cfg['min_scale_pots']),
         '__BTHR__': fmt(R['b_threshold']), '__BPCT__': '%g' % float(cfg.get('b_grade_pct', 1)),
         '__REDPCT__': '%g' % float(cfg.get('red_core_loss_pct', 15)),
+        '__REDMA__': '%g' % float(cfg.get('red_ma_trend_pct', 10)),
         '__REDGAP__': '' if int(cfg.get('red_core_dormant_months', 1)) <= 1 else '（連續 ≥%d 月）' % int(cfg['red_core_dormant_months']),
         '__LOSTM__': str(cfg.get('dormant_lost_months', 3)),
         '__AN_MIN__': '%g' % float(cfg.get('anomaly_min_pots', 5)),

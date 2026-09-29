@@ -10,6 +10,7 @@
   "b_grade_pct": 1,
   "red_core_loss_pct": 15,
   "red_core_dormant_months": 2,
+  "red_ma_trend_pct": 10,
   "dormant_lost_months": 3,
   "anomaly_min_pots": 5,
   "anomaly_dev_pct": 50,

@@ -4,7 +4,7 @@
  "mon": 9,
  "prev_label": "2026/08",
  "yoy_label": "2025/09",
- "generated_at": "2026-09-29 05:14",
+ "generated_at": "2026-09-29 05:23",
  "preview": {
   "asof": "2026-09-24",
   "day": 24,
@@ -147,7 +147,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -5.2,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "B2011",
@@ -171,7 +174,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -23.7,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "B3011",
@@ -195,7 +201,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": 13.3,
+   "ma_verdict": "趨勢成長",
+   "ma_cls": "ok"
   },
   {
    "key": "D0310",
@@ -219,7 +228,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": 5.3,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "D0330",
@@ -243,7 +255,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -61.2,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "B2021",
@@ -267,7 +282,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -47.2,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "D0121",
@@ -291,7 +309,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": 0.0,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "D0122",
@@ -315,7 +336,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": 21.2,
+   "ma_verdict": "趨勢成長",
+   "ma_cls": "ok"
   },
   {
    "key": "B3020",
@@ -339,7 +363,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": 200.0,
+   "ma_verdict": "趨勢成長",
+   "ma_cls": "ok"
   },
   {
    "key": "D2212",
@@ -363,7 +390,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": -100.0,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "A2020",
@@ -387,7 +417,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": 9.7,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "C1030",
@@ -411,7 +444,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": null,
+   "ma_verdict": "去年同期無生產",
+   "ma_cls": "grey"
   },
   {
    "key": "D0120",
@@ -435,7 +471,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": 8.6,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "D0113",
@@ -459,7 +498,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "B"
+   "grade": "B",
+   "ma_yoy": 7.3,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "A2040",
@@ -483,7 +525,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "C"
+   "grade": "C",
+   "ma_yoy": -20.0,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "C3020",
@@ -507,7 +552,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "C"
+   "grade": "C",
+   "ma_yoy": null,
+   "ma_verdict": "去年同期無生產",
+   "ma_cls": "grey"
   },
   {
    "key": "D0230",
@@ -531,7 +579,10 @@
    "core": false,
    "tag": null,
    "oem": false,
-   "grade": "C"
+   "grade": "C",
+   "ma_yoy": 8.3,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   }
  ],
  "grade_counts": {
@@ -567,7 +618,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -5.2,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "B2011",
@@ -591,7 +645,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -23.7,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "B3011",
@@ -615,7 +672,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": 13.3,
+   "ma_verdict": "趨勢成長",
+   "ma_cls": "ok"
   },
   {
    "key": "D0310",
@@ -639,7 +699,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": 5.3,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   },
   {
    "key": "D0330",
@@ -663,7 +726,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -61.2,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "B2021",
@@ -687,7 +753,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": -47.2,
+   "ma_verdict": "趨勢下滑",
+   "ma_cls": "bad"
   },
   {
    "key": "D0121",
@@ -711,7 +780,10 @@
    "core": true,
    "tag": null,
    "oem": false,
-   "grade": "A"
+   "grade": "A",
+   "ma_yoy": 0.0,
+   "ma_verdict": "趨勢持平",
+   "ma_cls": "mid"
   }
  ],
  "dormant": [
@@ -2191,6 +2263,7 @@
  "light_label": "需注意（暫定）",
  "light_reasons": [
   "總鍋數較去年同期下降 -26.3%（已排除季節性代工）",
+  "本業近 3 個月平均較去年同期 -15.5%（2026/06–2026/08，趨勢性衰退）",
   "7 項主力品項衰退，合計流失 589 鍋（占本業 32.7%，達紅燈門檻 15%）"
  ],
  "config": {
@@ -2204,6 +2277,7 @@
   "b_grade_pct": 1,
   "red_core_loss_pct": 15,
   "red_core_dormant_months": 2,
+  "red_ma_trend_pct": 10,
   "dormant_lost_months": 3,
   "anomaly_min_pots": 5,
   "anomaly_dev_pct": 50,
