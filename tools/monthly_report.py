@@ -203,16 +203,19 @@ def aggregate(rows):
 
 
 def roll(recs, cap_day=None):
-    """逐筆紀錄 → 月彙總 (pots, kg)。cap_day 有值時每個月只計入 1~cap_day 日（同期比較用）。"""
-    pots, kg = {}, {}
+    """逐筆紀錄 → 月彙總 (pots, kg, nokg)。cap_day 有值時每個月只計入 1~cap_day 日（同期比較用）。
+    nokg＝有鍋數但重量未填（空白或 0）的鍋數，用來區分「重量尚未補登」與真正的異常。"""
+    pots, kg, nokg = {}, {}, {}
     for key, ym, d, pv, kv in recs:
         if cap_day is not None and d > cap_day:
             continue
         if pv is not None:
             pots.setdefault(key, {})[ym] = pots.setdefault(key, {}).get(ym, 0.0) + pv
+            if pv > 0 and not kv:
+                nokg.setdefault(key, {})[ym] = nokg.setdefault(key, {}).get(ym, 0.0) + pv
         if kv is not None:
             kg.setdefault(key, {})[ym] = kg.setdefault(key, {}).get(ym, 0.0) + kv
-    return pots, kg
+    return pots, kg, nokg
 
 
 def norm_name(s):
@@ -233,12 +236,13 @@ def r1(v):
 def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_tracking=True):
     """full=(pots, kg) 完整月彙總（歷史／主力排名／斷單回溯用）；
     cmp=(pots, kg) 比較用彙總——正式月報與 full 相同，期中預覽則為「每月前 N 天」的同期資料。"""
-    pots, kg = full
-    pots_c, kg_c = cmp
+    pots, kg = full[0], full[1]
+    pots_c, kg_c, nokg_c = cmp
     Pf = lambda k, ym: pots.get(k, {}).get(ym, 0.0)
     Kf = lambda k, ym: kg.get(k, {}).get(ym, 0.0)
     P = lambda k, ym: pots_c.get(k, {}).get(ym, 0.0)
     K = lambda k, ym: kg_c.get(k, {}).get(ym, 0.0)
+    NK = lambda k, ym: nokg_c.get(k, {}).get(ym, 0.0)   # 重量未填的鍋數
 
     cur = (Y, M)
     prev = month_add(Y, M, -1)
@@ -277,7 +281,8 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     tot_kg_yoy = sum(K(k, yoy) for k in keys)
     active_items = [k for k in keys if P(k, cur) > 0]
     # 重量常於事後補登：本月有重量的鍋數占比過低時，視為「重量尚未填入」
-    kg_cov = (sum(P(k, cur) for k in keys if K(k, cur) > 0) / tot_pots * 100) if tot_pots else 0.0
+    nokg_pots = sum(NK(k, cur) for k in keys)
+    kg_cov = ((tot_pots - nokg_pots) / tot_pots * 100) if tot_pots else 0.0
     kg_pending = kg_cov < float(cfg.get('anomaly_kg_coverage_pct', 50))
 
     # ── 主力品項：以「前 12 個月累計鍋數」排名（不受本月衰退影響）──
@@ -361,7 +366,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             basis, loss, p_pct = 'MoM', loss_mom, mom_pct
             kg_base, kg_pct_v = kp, pct(kc, kp)
 
-        if kg_pending:
+        if kg_pending or (preview and NK(k, cur) > 0):
             verdict, vlabel = 'pending', '重量尚未填入'
         elif kg_base <= 0 or kg_pct_v is None:
             verdict, vlabel = 'unknown', '無重量資料'
@@ -623,13 +628,18 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
         pc = P(k, cur)
         if pc < an_min:
             continue
+        nk = NK(k, cur)
+        filled = pc - nk          # 已填重量的鍋數；每鍋重量只用這部分計算
         kc = K(k, cur)
         hist = [Kf(k, ym) / Pf(k, ym) for ym in base_window
                 if Pf(k, ym) >= an_min and Kf(k, ym) > 0]
-        ratio = kc / pc
+        ratio = kc / filled if filled > 0 else 0.0
         kind, dev, med, basis = None, None, None, None
-        if kc <= 0:
-            kind = '有鍋數、無重量'
+        if nk >= an_min and not preview:
+            # 正式月報：月份已結束仍有批次沒有重量 → 異常（期中預覽視為尚未補登，不列）
+            kind = '有鍋數、無重量（%s 鍋）' % '{:,}'.format(round(nk))
+        elif filled < an_min:
+            continue
         elif len(hist) >= an_hist:
             # 有足夠歷史：與品項自己的前 12 個月中位數比較
             med, basis = statistics.median(hist), '自身歷史'
@@ -783,7 +793,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
         'categories': cats, 'same_month': same_month,
         'typical_mom': typical_mom, 'seasonal_note': seasonal_note, 'seasonal_sample': seasonal_sample,
         'trend': trend, 'waterfall': waterfall, 'anomalies': anomalies, 'tracking': tracking,
-        'kg_coverage': round(kg_cov, 1), 'kg_pending': kg_pending,
+        'kg_coverage': round(kg_cov, 1), 'kg_pending': kg_pending, 'nokg_pots': round(nokg_pots),
         'factory_kg_per_pot': None if factory_kpp is None else round(factory_kpp, 1),
         'light': light, 'light_label': light_label, 'light_reasons': reasons,
         'config': cfg,
@@ -1340,7 +1350,13 @@ def build_html(R, narrative):
                     ('<br>⚠️ 目前僅 %d 天資料，單日排程差異就會讓比較大幅波動，判讀請保守。' % pv['day']
                      if pv['day'] < 10 else '')
                     + ('<br>⚖️ 本月重量尚未填入（有重量的鍋數僅占 %s%%），重量相關數字暫不具參考性。' % R['kg_coverage']
-                       if R.get('kg_pending') else '')))
+                       if R.get('kg_pending') else
+                       '<br>⚖️ 尚有 %s 鍋未填重量（%s），重量數字偏低、暫不比較；這些批次不列入資料異常。' % (
+                           fmt(R['nokg_pots']), esc(pv.get('nokg_days') or ''))
+                       if R.get('nokg_pots') else '')
+                    + ''.join('<br>📭 <strong>%s 連續 %d 天沒有任何生產紀錄</strong>（過去一年正常月份最長 4 天），'
+                              '請確認是停產還是資料尚未登錄——若為漏登，本預覽的同期比較會偏低。' % (g['range'], g['days'])
+                              for g in pv.get('gaps') or [])))
     elif R.get('kg_pending'):
         warn = ('<div class="note warn">⚖️ <strong>本月重量資料尚未填入</strong>：有重量的鍋數僅占 %s%%，'
                 '重量相關數字與資料異常檢查暫不具參考性。</div>' % R['kg_coverage'])
@@ -1459,6 +1475,8 @@ def build_html(R, narrative):
         '__POTS__': fmt(t['pots']), '__KG__': '—' if R.get('kg_pending') else fmt(t['kg']), '__ITEMS__': str(t['items']),
         '__POTS_MOM__': pct_span(t['mom_pct']), '__POTS_YOY__': pct_span(t['yoy_pct']),
         '__KG_DLT__': ('重量尚未填入' if R.get('kg_pending') else
+                       '重量補登中（已填 %s%% 鍋數），暫不比較' % R['kg_coverage']
+                       if pv and R.get('nokg_pots') else
                        '環比 %s ｜ 同比 %s' % (pct_span(t['kg_mom_pct']), pct_span(t['kg_yoy_pct']))),
         '__ALERTS__': str(gc['A'] + gc['B']), '__GA__': str(gc['A']), '__GB__': str(gc['B']),
         '__DORMANT__': str(len(R['dormant'])), '__DORMANT_WORD__': dormant_word,
@@ -1622,6 +1640,24 @@ def main():
             'prev_period': '%d/1–%d/%d' % (pm_, pm_, prev_dim if full_month else min(D, prev_dim)),
             'yoy_period': '%d/%d/1–%d/%d' % (Y - 1, M, M, dim if full_month else D),
         }
+        # 本月連續無生產紀錄的日期區間（≥ preview_gap_days 天）
+        have = {d for (_k, ym, d, _p, _kg) in recs if ym == (Y, M)}
+        gap_min = int(cfg.get('preview_gap_days', 5))
+        gaps, run = [], 0
+        for d in range(1, D + 2):
+            if d <= D and d not in have:
+                run += 1
+                continue
+            if run >= gap_min:
+                gaps.append({'range': '%d/%d–%d/%d' % (M, d - run, M, d - 1), 'days': run})
+            run = 0
+        preview['gaps'] = gaps
+        nk_days = sorted({d for (_k, ym, d, p, kv) in recs if ym == (Y, M) and p and p > 0 and not kv})
+        if nk_days:
+            shown = nk_days if len(nk_days) <= 8 else nk_days[-8:]
+            preview['nokg_days'] = ('分布在 ' if len(nk_days) <= 8 else '主要在 ') + \
+                '、'.join('%d/%d' % (M, d) for d in shown) + \
+                ('（共 %d 天）' % len(nk_days) if len(nk_days) > 8 else '')
         full = roll(recs)
         cmp = full if full_month else roll(recs, D)
     else:
