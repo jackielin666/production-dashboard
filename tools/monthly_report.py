@@ -15,11 +15,13 @@
 分析取向為業務量（鍋數為主、半成品重量 kg 交叉驗證）；製成率／品質不在本報告範圍。
 """
 import argparse
+import calendar
 import json
 import os
 import re
 import statistics
 import sys
+import unicodedata
 import zipfile
 from datetime import date, datetime
 from xml.etree import ElementTree as ET
@@ -159,13 +161,19 @@ def pct(cur, base):
 
 # ────────────────────────── 彙總 ──────────────────────────
 def aggregate(rows):
-    pots, kg, meta = {}, {}, {}
+    """回傳 (recs, meta, month_counts, last_date)。
+
+    recs 為逐筆紀錄 (key, (y, m), day, pots, kg)，已排除「刪除」列；
+    月彙總由 roll() 產生，期中預覽可只取每月前 N 天做同期比較。
+    """
+    recs, meta = [], {}
     month_counts = {}
+    last_date = None
     for r in rows[1:]:
         ymd = parse_ymd(r.get(C_DATE))
         if not ymd:
             continue
-        y, m, _ = ymd
+        y, m, d = ymd
         name = r.get(C_NAME)
         if name is None:
             continue
@@ -188,19 +196,49 @@ def aggregate(rows):
             }
         if r.get(C_DELETED):
             continue
-        pv = to_num(r.get(C_POTS))
-        kv = to_num(r.get(C_KG))
+        if last_date is None or ymd > last_date:
+            last_date = ymd
+        recs.append((key, ym, d, to_num(r.get(C_POTS)), to_num(r.get(C_KG))))
+    return recs, meta, month_counts, last_date
+
+
+def roll(recs, cap_day=None):
+    """逐筆紀錄 → 月彙總 (pots, kg)。cap_day 有值時每個月只計入 1~cap_day 日（同期比較用）。"""
+    pots, kg = {}, {}
+    for key, ym, d, pv, kv in recs:
+        if cap_day is not None and d > cap_day:
+            continue
         if pv is not None:
             pots.setdefault(key, {})[ym] = pots.setdefault(key, {}).get(ym, 0.0) + pv
         if kv is not None:
             kg.setdefault(key, {})[ym] = kg.setdefault(key, {}).get(ym, 0.0) + kv
-    return pots, kg, meta, month_counts
+    return pots, kg
+
+
+def norm_name(s):
+    """改版提示用：全形轉半形、忽略大小寫與空白。"""
+    return re.sub(r'\s+', '', unicodedata.normalize('NFKC', str(s))).casefold()
+
+
+def base_code(code):
+    """改版提示用：去掉料號的改版後綴（B3011-1 → B3011）。"""
+    return re.sub(r'-\d+$', '', code or '')
 
 
 # ────────────────────────── 分析 ──────────────────────────
-def compute(pots, kg, meta, month_counts, Y, M, cfg):
-    P = lambda k, ym: pots.get(k, {}).get(ym, 0.0)
-    K = lambda k, ym: kg.get(k, {}).get(ym, 0.0)
+def r1(v):
+    return None if v is None else round(v, 1)
+
+
+def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_tracking=True):
+    """full=(pots, kg) 完整月彙總（歷史／主力排名／斷單回溯用）；
+    cmp=(pots, kg) 比較用彙總——正式月報與 full 相同，期中預覽則為「每月前 N 天」的同期資料。"""
+    pots, kg = full
+    pots_c, kg_c = cmp
+    Pf = lambda k, ym: pots.get(k, {}).get(ym, 0.0)
+    Kf = lambda k, ym: kg.get(k, {}).get(ym, 0.0)
+    P = lambda k, ym: pots_c.get(k, {}).get(ym, 0.0)
+    K = lambda k, ym: kg_c.get(k, {}).get(ym, 0.0)
 
     cur = (Y, M)
     prev = month_add(Y, M, -1)
@@ -226,7 +264,11 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
     else:
         incomplete = bool(median and cur_count < 0.5 * median)
 
-    # ── 整體 ──
+    def month_complete(ym):
+        """歷史月份是否資料完整（筆數 ≥ 中位數 50%）；季節性對照用。"""
+        return bool(median) and month_counts.get(ym, 0) >= 0.5 * median
+
+    # ── 整體（期中預覽時為同期數字）──
     tot_pots = sum(P(k, cur) for k in keys)
     tot_pots_prev = sum(P(k, prev) for k in keys)
     tot_pots_yoy = sum(P(k, yoy) for k in keys)
@@ -234,16 +276,13 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
     tot_kg_prev = sum(K(k, prev) for k in keys)
     tot_kg_yoy = sum(K(k, yoy) for k in keys)
     active_items = [k for k in keys if P(k, cur) > 0]
-
-    # YTD（1月~M月）今年 vs 去年同期
-    ytd = sum(P(k, (Y, m)) for k in keys for m in range(1, M + 1))
-    ytd_prev = sum(P(k, (Y - 1, m)) for k in keys for m in range(1, M + 1))
-    ytd_kg = sum(K(k, (Y, m)) for k in keys for m in range(1, M + 1))
-    ytd_kg_prev = sum(K(k, (Y - 1, m)) for k in keys for m in range(1, M + 1))
+    # 重量常於事後補登：本月有重量的鍋數占比過低時，視為「重量尚未填入」
+    kg_cov = (sum(P(k, cur) for k in keys if K(k, cur) > 0) / tot_pots * 100) if tot_pots else 0.0
+    kg_pending = kg_cov < float(cfg.get('anomaly_kg_coverage_pct', 50))
 
     # ── 主力品項：以「前 12 個月累計鍋數」排名（不受本月衰退影響）──
     base_window = [month_add(Y, M, -i) for i in range(1, 13)]
-    baseline = {k: sum(P(k, ym) for ym in base_window) for k in keys}
+    baseline = {k: sum(Pf(k, ym) for ym in base_window) for k in keys}
     # ── 品項註記（tools/report_config.json 的 item_overrides，以料號為 key）──
     # discontinued=已下市：完全排除警示與燈號；seasonal_oem=季節性代工：不列主力、不觸發燈號
     overrides = cfg.get('item_overrides', {}) or {}
@@ -263,7 +302,44 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
     scale = float(cfg['min_scale_pots'])
     kg_flat = float(cfg['kg_flat_pct'])
 
+    # ── 排除季節性代工後的總量（本業表現；燈號與 B 級門檻以此為準）──
+    has_oem = bool(oem_keys) and any(
+        P(k, cur) > 0 or P(k, prev) > 0 or P(k, yoy) > 0 for k in oem_keys)
+    ex_pots = sum(P(k, cur) for k in keys if k not in oem_keys)
+    ex_prev = sum(P(k, prev) for k in keys if k not in oem_keys)
+    ex_yoy_v = sum(P(k, yoy) for k in keys if k not in oem_keys)
+    ex_mom = pct(ex_pots, ex_prev)
+    ex_yoy_pct = pct(ex_pots, ex_yoy_v)
+    mom_pct_total = pct(tot_pots, tot_pots_prev)
+    yoy_pct_total = pct(tot_pots, tot_pots_yoy)
+    judge_total = ex_pots if has_oem else tot_pots
+    judge_mom = ex_mom if has_oem else mom_pct_total
+    judge_yoy = ex_yoy_pct if has_oem else yoy_pct_total
+
+    # ── 改版提示（E2）：同名或同料號系列、且本月鍋數增加的其他料號 ──
+    # 系統不判斷是否為同一產品，只提示讀者「可能為改版轉移」。
+    by_name, by_base = {}, {}
+    for k in keys:
+        by_name.setdefault(norm_name(meta[k]['品項']), set()).add(k)
+        code = meta[k]['料號']
+        if code and code not in PLACEHOLDER_CODES:
+            by_base.setdefault(base_code(code), set()).add(k)
+
+    def sibling_hints(k):
+        sibs = set(by_name.get(norm_name(meta[k]['品項']), set()))
+        code = meta[k]['料號']
+        if code and code not in PLACEHOLDER_CODES:
+            sibs |= by_base.get(base_code(code), set())
+        sibs.discard(k)
+        out = []
+        for j in sorted(sibs):
+            gain = P(j, cur) - P(j, prev)
+            if gain > 0:
+                out.append({'料號': meta[j]['料號'], '品項': meta[j]['品項'], 'gain': round(gain)})
+        return out
+
     # ── 接單下滑警示 ──
+    # 分級只看鍋數；重量變化僅作參考（製程條件改變也會讓重量變動），不再用來降級或排除。
     alerts = []
     for k in keys:
         if k in dropped_keys:
@@ -278,7 +354,6 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
             continue
         loss_mom = (pp - pc) if trig_mom else 0.0
         loss_yoy = (py - pc) if trig_yoy else 0.0
-        # 以流失較大的基準做交叉判讀
         if loss_yoy > loss_mom:
             basis, loss, p_pct = 'YoY', loss_yoy, yoy_pct
             kg_base, kg_pct_v = ky, pct(kc, ky)
@@ -286,58 +361,89 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
             basis, loss, p_pct = 'MoM', loss_mom, mom_pct
             kg_base, kg_pct_v = kp, pct(kc, kp)
 
-        if kg_base <= 0 or kg_pct_v is None:
-            verdict, vlabel = 'unknown', '無重量資料，無法交叉驗證'
+        if kg_pending:
+            verdict, vlabel = 'pending', '重量尚未填入'
+        elif kg_base <= 0 or kg_pct_v is None:
+            verdict, vlabel = 'unknown', '無重量資料'
         elif kg_pct_v <= -dec:
-            verdict, vlabel = 'real', '實質接單下滑（產出同步下降）'
+            verdict, vlabel = 'real', '重量同步下降'
         elif kg_pct_v <= -kg_flat:
-            verdict, vlabel = 'partial', '部分下滑'
+            verdict, vlabel = 'partial', '重量小幅下降'
         else:
-            verdict, vlabel = 'batch', '批量調整，非接單下滑'
+            verdict, vlabel = 'batch', '重量持平或增加'
 
         alerts.append({
             'key': k, '料號': meta[k]['料號'], '品項': meta[k]['品項'], '類別': meta[k]['類別'],
             'pots_cur': round(pc), 'pots_prev': round(pp), 'pots_yoy': round(py),
             'kg_cur': round(kc), 'kg_prev': round(kp), 'kg_yoy': round(ky),
-            'mom_pct': None if mom_pct is None else round(mom_pct, 1),
-            'yoy_pct': None if yoy_pct is None else round(yoy_pct, 1),
-            'kg_pct': None if kg_pct_v is None else round(kg_pct_v, 1),
-            'basis': basis, 'loss': round(loss), 'pots_pct': None if p_pct is None else round(p_pct, 1),
+            'mom_pct': r1(mom_pct), 'yoy_pct': r1(yoy_pct), 'kg_pct': r1(kg_pct_v),
+            'basis': basis, 'loss': round(loss), 'pots_pct': r1(p_pct),
             'verdict': verdict, 'verdict_label': vlabel,
             'core': k in core_keys,
             'tag': ov[k]['label'] if k in ov else None,
             'oem': k in oem_keys,
+            'hints': sibling_hints(k),
         })
+
     # ── 斷單（前 N 個月常態生產、本月掛零）──
-    # 斷單比「衰退」更嚴重，獨立成一類；同樣套用規模門檻，濾除零星小量品項的雜訊。
+    # 期中預覽時本月尚未結束，同樣條件的品項改稱「截至目前尚未生產」，不算斷單、不觸發燈號。
     look = int(cfg['dormant_lookback'])
     need = int(cfg['dormant_min_active'])
+    lost_months = int(cfg.get('dormant_lost_months', 3))
     dormant = []
     for k in keys:
         if k in dropped_keys or P(k, cur) > 0:
             continue
         window = [month_add(Y, M, -i) for i in range(1, look + 1)]
-        vals = [P(k, ym) for ym in window]
+        vals = [Pf(k, ym) for ym in window]
         active = sum(1 for v in vals if v > 0)
         if active < need:
             continue
         avg = sum(vals) / max(1, active)
         if avg < scale:
             continue
+        # 連續未生產月數（正式月報含本月；預覽不含尚未結束的本月）與最後生產月
+        gap, last_seen, last_pots = 0, None, 0
+        start = 0 if not preview else 1
+        for i in range(start, 37):
+            ym = month_add(Y, M, -i)
+            if Pf(k, ym) > 0:
+                last_seen, last_pots = ym, Pf(k, ym)
+                break
+            gap += 1
         dormant.append({
             'key': k, '料號': meta[k]['料號'], '品項': meta[k]['品項'],
             'active_months': active, 'avg_pots': round(avg),
-            'last_pots': round(vals[0]), 'core': k in core_keys,
+            'last_pots': round(vals[0]),
+            'gap_months': gap,
+            'last_seen': mlabel(*last_seen) if last_seen else None,
+            'last_seen_pots': round(last_pots),
+            'suspect_lost': (not preview) and gap >= lost_months,
+            'core': k in core_keys,
             'tag': ov[k]['label'] if k in ov else None,
+            'hints': sibling_hints(k),
         })
     dormant.sort(key=lambda d: -d['avg_pots'])
     dormant_keys = {d['key'] for d in dormant}
 
     # 已列為斷單者不再重複列入衰退警示，讓兩份清單互斥、計數不重複
     alerts = [a for a in alerts if a['key'] not in dormant_keys]
-    alerts.sort(key=lambda a: -a['loss'])
-    real_alerts = [a for a in alerts if a['verdict'] in ('real', 'partial')]
-    core_real = [a for a in real_alerts if a['core']]
+
+    # ── 警示分級 ──
+    # A：主力品項（不設門檻）；B：非主力且流失 ≥ 本業總鍋數 × b_grade_pct%；C：其餘（報告中收合）
+    # 季節性代工品項另列「註」：量體大且間歇，放進分級會蓋過本業訊號。
+    b_pct = float(cfg.get('b_grade_pct', 1))
+    b_threshold = max(1, round(judge_total * b_pct / 100.0))
+    for a in alerts:
+        if a['oem']:
+            a['grade'] = 'N'
+        else:
+            a['grade'] = 'A' if a['core'] else ('B' if a['loss'] >= b_threshold else 'C')
+    alerts.sort(key=lambda a: ('ABNC'.index(a['grade']), -a['loss']))
+    grade_counts = {g: sum(1 for a in alerts if a['grade'] == g) for g in 'ABCN'}
+    a_alerts = [a for a in alerts if a['grade'] == 'A']
+    core_loss = sum(a['loss'] for a in a_alerts)
+    core_loss_pct = core_loss / judge_total * 100 if judge_total else None
 
     # ── 成長品項 ──
     growth = []
@@ -351,8 +457,7 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
             'key': k, '料號': meta[k]['料號'], '品項': meta[k]['品項'],
             'pots_cur': round(pc), 'pots_prev': round(pp), 'pots_yoy': round(py),
             'gain_mom': round(g_mom), 'gain_yoy': round(g_yoy), 'gain': round(gain),
-            'mom_pct': None if pct(pc, pp) is None else round(pct(pc, pp), 1),
-            'yoy_pct': None if pct(pc, py) is None else round(pct(pc, py), 1),
+            'mom_pct': r1(pct(pc, pp)), 'yoy_pct': r1(pct(pc, py)),
             'tag': ov[k]['label'] if k in ov else None,
         })
     growth.sort(key=lambda g: -g['gain'])
@@ -365,7 +470,7 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
             newbies.append({'料號': meta[k]['料號'], '品項': meta[k]['品項'], 'pots': round(P(k, cur))})
             continue
         last3 = [month_add(Y, M, -i) for i in (1, 2, 3)]
-        if all(P(k, ym) == 0 for ym in last3):
+        if all(Pf(k, ym) == 0 for ym in last3):
             gap_end = max(hist)
             returning.append({'料號': meta[k]['料號'], '品項': meta[k]['品項'],
                               'pots': round(P(k, cur)), 'last_seen': mlabel(*gap_end)})
@@ -390,30 +495,36 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
         cats[cat] = {
             'pots': round(c), 'prev': round(p), 'yoy': round(yv),
             'kg': round(sum(K(k, cur) for k in ks)),
-            'mom_pct': None if pct(c, p) is None else round(pct(c, p), 1),
-            'yoy_pct': None if pct(c, yv) is None else round(pct(c, yv), 1),
+            'mom_pct': r1(pct(c, p)), 'yoy_pct': r1(pct(c, yv)),
             'share': round(c / tot_pots * 100, 1) if tot_pots else 0,
         }
 
     # ── 季節性：同月跨年度，以及「該月轉換的常態變化」──
+    # 資料不完整的歷史月份（筆數 < 中位數 50%，或整月缺漏）不列入，並在報告中註明樣本數。
     years = sorted({y for (y, _m) in month_counts})
-    same_month = []
+    same_month, season_excluded = [], []
     for y in years:
-        tp = sum(P(k, (y, M)) for k in keys)
-        if tp > 0 or (y, M) in month_counts:
-            same_month.append({'year': y, 'pots': round(tp)})
-    typical_moms = []
+        if y > Y:
+            continue
+        if y < Y and not month_complete((y, M)):
+            if y >= years[0]:
+                season_excluded.append(mlabel(y, M))
+            continue
+        same_month.append({'year': y, 'pots': round(sum(P(k, (y, M)) for k in keys))})
+    typical_moms, season_years = [], []
     for y in years:
         if y >= Y:
             continue
-        py_, pm_ = month_add(y, M, -1)
+        pym = month_add(y, M, -1)
+        if not (month_complete((y, M)) and month_complete(pym)):
+            continue
         a = sum(P(k, (y, M)) for k in keys)
-        b = sum(P(k, (py_, pm_)) for k in keys)
+        b = sum(P(k, pym) for k in keys)
         r = pct(a, b)
         if r is not None and b > 0 and a > 0:
             typical_moms.append(r)
+            season_years.append(y)
     typical_mom = round(sum(typical_moms) / len(typical_moms), 1) if typical_moms else None
-    mom_pct_total = pct(tot_pots, tot_pots_prev)
     seasonal_note = None
     if typical_mom is not None and mom_pct_total is not None:
         gap = mom_pct_total - typical_mom
@@ -423,89 +534,257 @@ def compute(pots, kg, meta, month_counts, Y, M, cfg):
             seasonal_note = '本月環比 %.1f%%，明顯低於過去同月份平均的 %.1f%%，非單純季節性因素。' % (mom_pct_total, typical_mom)
         else:
             seasonal_note = '本月環比 %.1f%%，優於過去同月份平均的 %.1f%%。' % (mom_pct_total, typical_mom)
+    sample_txt = '季節性參考樣本：%d 年（%s）' % (
+        len(season_years), '、'.join(str(y) for y in season_years) or '無')
+    if season_excluded:
+        sample_txt += '；%s 資料不完整，未列入' % '、'.join(season_excluded)
+    if len(season_years) < 3:
+        sample_txt += '。樣本少於 3 年，僅供參考'
+    seasonal_sample = sample_txt + '。'
 
-    # ── 近 N 個月趨勢 ──
+    # ── 近 N 個月趨勢（完整月；預覽時本月為截至目前）──
     trend = []
     for i in range(int(cfg['trend_months']) - 1, -1, -1):
         ym = month_add(Y, M, -i)
         if ym not in month_counts:
             continue
-        trend.append({'label': mlabel(*ym),
-                      'pots': round(sum(P(k, ym) for k in keys)),
-                      'kg': round(sum(K(k, ym) for k in keys))})
+        lab = mlabel(*ym)
+        if preview and ym == cur:
+            lab += '*'
+        trend.append({'label': lab,
+                      'pots': round(sum(Pf(k, ym) for k in keys)),
+                      'kg': round(sum(Kf(k, ym) for k in keys))})
 
-    # ── 排除季節性代工後的總量（反映本業真實表現）──
-    # 代工品項量體大且間歇，會讓月度總數劇烈起伏；另計一組排除後的數字。
-    has_oem = bool(oem_keys) and any(
-        P(k, cur) > 0 or P(k, prev) > 0 or P(k, yoy) > 0 for k in oem_keys)
-    ex_pots = ex_prev = ex_yoy_v = ex_mom = ex_yoy_pct = None
-    if has_oem:
-        ex_pots = sum(P(k, cur) for k in keys if k not in oem_keys)
-        ex_prev = sum(P(k, prev) for k in keys if k not in oem_keys)
-        ex_yoy_v = sum(P(k, yoy) for k in keys if k not in oem_keys)
-        ex_mom = pct(ex_pots, ex_prev)
-        ex_yoy_pct = pct(ex_pots, ex_yoy_v)
+    # ── YTD（1月~本月）今年 vs 去年同期；本月以比較口徑計（預覽時為同期）──
+    def ytd_of(year, ks):
+        return (sum(Pf(k, (year, m)) for k in ks for m in range(1, M))
+                + sum(P(k, (year, M)) for k in ks))
+    ytd = ytd_of(Y, keys)
+    ytd_prev = ytd_of(Y - 1, keys)
+    ytd_kg = (sum(Kf(k, (Y, m)) for k in keys for m in range(1, M)) + sum(K(k, cur) for k in keys))
+    ytd_kg_prev = (sum(Kf(k, (Y - 1, m)) for k in keys for m in range(1, M)) + sum(K(k, yoy) for k in keys))
+    core_biz = [k for k in keys if k not in oem_keys]
+    ytd_oem = ytd_of(Y, oem_keys) if oem_keys else 0
+    ytd_oem_prev = ytd_of(Y - 1, oem_keys) if oem_keys else 0
+    has_oem_ytd = bool(ytd_oem or ytd_oem_prev)
+    ytd_ex = ytd_of(Y, core_biz)
+    ytd_ex_prev = ytd_of(Y - 1, core_biz)
+    series = {'labels': [], 'this_ex': [], 'last_ex': [], 'this_all': []}
+    c_this = c_last = c_all = 0.0
+    for m in range(1, M + 1):
+        f = P if m == M else Pf
+        c_this += sum(f(k, (Y, m)) for k in core_biz)
+        c_last += sum(f(k, (Y - 1, m)) for k in core_biz)
+        c_all += sum(f(k, (Y, m)) for k in keys)
+        series['labels'].append('%d月' % m)
+        series['this_ex'].append(round(c_this))
+        series['last_ex'].append(round(c_last))
+        series['this_all'].append(round(c_all))
+    oem_names = '、'.join(meta[k]['品項'] for k in sorted(oem_keys) if ytd_of(Y, [k]) or ytd_of(Y - 1, [k]))
+    ytd_block = {
+        'has_oem': has_oem_ytd, 'oem_names': oem_names,
+        'pots': round(ytd_ex), 'pots_prev': round(ytd_ex_prev), 'pct': r1(pct(ytd_ex, ytd_ex_prev)),
+        'oem_pots': round(ytd_oem), 'oem_pots_prev': round(ytd_oem_prev),
+        'all_pots': round(ytd), 'all_pots_prev': round(ytd_prev), 'all_pct': r1(pct(ytd, ytd_prev)),
+        'series': series,
+    }
+
+    # ── 環比瀑布：上月 → 各品項增減 → 本月 ──
+    wf_n = int(cfg.get('waterfall_items', 5))
+    deltas = [(k, P(k, cur) - P(k, prev)) for k in keys]
+    neg = sorted([d for d in deltas if d[1] < 0], key=lambda d: d[1])
+    pos = sorted([d for d in deltas if d[1] > 0], key=lambda d: -d[1])
+    steps = []
+    for k, d in neg[:wf_n]:
+        steps.append({'label': meta[k]['品項'], 'code': meta[k]['料號'], 'delta': round(d)})
+    if neg[wf_n:]:
+        steps.append({'label': '其他 %d 項減少' % len(neg[wf_n:]), 'code': '',
+                      'delta': round(sum(d for _k, d in neg[wf_n:]))})
+    if pos[wf_n:]:
+        steps.append({'label': '其他 %d 項增加' % len(pos[wf_n:]), 'code': '',
+                      'delta': round(sum(d for _k, d in pos[wf_n:]))})
+    for k, d in reversed(pos[:wf_n]):
+        steps.append({'label': meta[k]['品項'], 'code': meta[k]['料號'], 'delta': round(d)})
+    waterfall = {'start': round(tot_pots_prev), 'end': round(tot_pots), 'steps': steps,
+                 'dec_total': round(sum(d for _k, d in neg)), 'inc_total': round(sum(d for _k, d in pos))}
+
+    # ── 資料異常：鍋數與重量不匹配（只點出，原因請製造單位說明）──
+    # 重量常於事後補登：本月有重量的鍋數占比 < anomaly_kg_coverage_pct 時視為「重量尚未填入」，暫不檢查。
+    an_min = float(cfg.get('anomaly_min_pots', 5))
+    an_pct = float(cfg.get('anomaly_dev_pct', 50))
+    an_hist = int(cfg.get('anomaly_min_history', 3))
+    an_low = float(cfg.get('anomaly_new_low_pct', 20))
+    an_high = float(cfg.get('anomaly_new_high_pct', 300))
+    f_p = sum(Pf(k, ym) for k in keys for ym in base_window)
+    f_k = sum(Kf(k, ym) for k in keys for ym in base_window)
+    factory_kpp = f_k / f_p if f_p else None
+    anomalies = []
+    for k in ([] if kg_pending else keys):
+        pc = P(k, cur)
+        if pc < an_min:
+            continue
+        kc = K(k, cur)
+        hist = [Kf(k, ym) / Pf(k, ym) for ym in base_window
+                if Pf(k, ym) >= an_min and Kf(k, ym) > 0]
+        ratio = kc / pc
+        kind, dev, med, basis = None, None, None, None
+        if kc <= 0:
+            kind = '有鍋數、無重量'
+        elif len(hist) >= an_hist:
+            # 有足夠歷史：與品項自己的前 12 個月中位數比較
+            med, basis = statistics.median(hist), '自身歷史'
+            dev = (ratio / med - 1) * 100
+            if abs(dev) >= an_pct:
+                kind = '每鍋重量偏低' if dev < 0 else '每鍋重量偏高'
+        elif factory_kpp:
+            # 新品或歷史不足：與全廠平均每鍋重量比較，只抓極端值
+            med, basis = factory_kpp, '全廠平均'
+            dev = (ratio / med - 1) * 100
+            share = ratio / med * 100
+            if share < an_low or share > an_high:
+                kind = '每鍋重量與全廠差異過大'
+        if kind:
+            anomalies.append({
+                'key': k, '料號': meta[k]['料號'], '品項': meta[k]['品項'],
+                'pots': round(pc), 'kg': round(kc), 'kg_per_pot': round(ratio, 1),
+                'hist_median': None if med is None else round(med, 1), 'basis': basis,
+                'hist_n': len(hist), 'dev_pct': r1(dev), 'kind': kind,
+                'tag': ov[k]['label'] if k in ov else None,
+            })
+    anomalies.sort(key=lambda x: -x['pots'])
+    anomaly_keys = {x['key'] for x in anomalies}
 
     # ── 綜合燈號 ──
-    yoy_pct_total = pct(tot_pots, tot_pots_yoy)
     reasons = []
-    # 有季節性代工品項時，改用排除後的同比判定，避免代工的有無誤觸紅燈
-    judge_yoy = ex_yoy_pct if has_oem else yoy_pct_total
     if judge_yoy is not None and judge_yoy <= -dec:
-        reasons.append('總鍋數較去年同月下降 %.1f%%%s' % (
-            judge_yoy, '（已排除季節性代工）' if has_oem else ''))
-    if core_real:
-        reasons.append('%d 項主力品項出現實質衰退' % len(core_real))
-    core_dormant = [d for d in dormant if d['core']]
+        reasons.append('總鍋數較去年同%s下降 %.1f%%%s' % (
+            '期' if preview else '月', judge_yoy, '（已排除季節性代工）' if has_oem else ''))
+    red_gap = int(cfg.get('red_core_dormant_months', 1))
+    core_dormant = [d for d in dormant if d['core'] and d['gap_months'] >= red_gap] if not preview else []
     if core_dormant:
-        reasons.append('%d 項主力品項本月斷單' % len(core_dormant))
+        reasons.append('%d 項主力品項斷單%s' % (
+            len(core_dormant), '' if red_gap <= 1 else '（連續 ≥%d 月）' % red_gap))
+    red_pct = float(cfg.get('red_core_loss_pct', 15))
+    if a_alerts and core_loss_pct is not None and core_loss_pct >= red_pct:
+        reasons.append('%d 項主力品項衰退，合計流失 %s 鍋（占本業 %.1f%%，達紅燈門檻 %g%%）' % (
+            len(a_alerts), '{:,}'.format(core_loss), core_loss_pct, red_pct))
     if reasons:
         light, light_label = 'red', '需注意'
-    elif real_alerts or dormant:
+    elif a_alerts:
         light, light_label = 'yellow', '觀察'
-        reasons.append('有 %d 項品項出現衰退訊號，惟未涉及主力品項' % (len(real_alerts) + len(dormant)))
-    elif (mom_pct_total or 0) > 0 and (yoy_pct_total or 0) > 0:
+        reasons.append('%d 項主力品項衰退，合計流失 %s 鍋（占本業 %.1f%%，未達紅燈門檻 %g%%）' % (
+            len(a_alerts), '{:,}'.format(core_loss), core_loss_pct or 0, red_pct))
+    elif (judge_mom or 0) >= 0 and (judge_yoy or 0) >= 0:
         light, light_label = 'green', '表現良好'
-        reasons.append('總量環比與同比皆成長，且無主力品項衰退警示')
+        reasons.append('總量環比與同比皆未衰退，且無主力品項警示')
     else:
         light, light_label = 'yellow', '持平'
-        reasons.append('總量變化不大，無明顯衰退警示')
+        reasons.append('總量小幅變動，無主力品項警示')
+    if preview:
+        light_label += '（暫定）'
+
+    # ── 上期追蹤：上月點名的 A/B 級警示、斷單、資料異常，本月的狀態 ──
+    tracking = None
+    if with_tracking and prev in month_counts:
+        Rp = compute(full, full, meta, month_counts, prev[0], prev[1], cfg, None, False)
+        factor = preview['factor'] if preview else 1.0
+        items = []
+
+        def now_of(k):
+            return P(k, cur) * factor
+
+        for a in Rp['alerts']:
+            if a['grade'] not in ('A', 'B'):
+                continue
+            k = a['key']
+            ref_v = a['pots_prev'] if a['basis'] == 'MoM' else a['pots_yoy']
+            last, now = a['pots_cur'], now_of(k)
+            if now >= 0.9 * ref_v:
+                st, cls = '已恢復', 'ok'
+            elif now == 0:
+                st, cls = ('本月尚未生產', 'mid') if preview else ('轉為斷單', 'bad')
+            elif now > last * 1.1:
+                st, cls = '回升中', 'mid'
+            elif now < last * 0.9:
+                st, cls = '持續下滑', 'bad'
+            else:
+                st, cls = '未改善', 'mid'
+            items.append({'kind': '%s級衰退' % a['grade'], '料號': a['料號'], '品項': a['品項'],
+                          'core': a['core'], 'tag': a.get('tag'), 'hints': sibling_hints(k),
+                          'then': '%s 鍋（基準 %s，流失 %s）' % (
+                              '{:,}'.format(last), '{:,}'.format(ref_v), '{:,}'.format(a['loss'])),
+                          'now': round(now), 'status': st, 'cls': cls})
+        for d in Rp['dormant']:
+            k = d['key']
+            now = now_of(k)
+            if P(k, cur) > 0:
+                st, cls = '恢復生產', 'ok'
+            elif preview:
+                st, cls = '本月尚未生產', 'mid'
+            else:
+                g = d['gap_months'] + 1
+                st, cls = '持續斷單（連續 %d 月）' % g, 'bad'
+            items.append({'kind': '斷單', '料號': d['料號'], '品項': d['品項'],
+                          'core': d['core'], 'tag': d.get('tag'), 'hints': sibling_hints(k),
+                          'then': '0 鍋（前期月均 %s）' % '{:,}'.format(d['avg_pots']),
+                          'now': round(now), 'status': st, 'cls': cls})
+        for x in Rp['anomalies']:
+            k = x['key']
+            if kg_pending:
+                st, cls = '重量尚未填入，待確認', 'mid'
+            elif k in anomaly_keys:
+                st, cls = '仍異常', 'bad'
+            elif P(k, cur) < an_min:
+                st, cls = '本月未生產（無法確認）', 'mid'
+            else:
+                st, cls = '已正常', 'ok'
+            items.append({'kind': '資料異常', '料號': x['料號'], '品項': x['品項'],
+                          'core': False, 'tag': x.get('tag'),
+                          'then': '%s（%s 鍋／%s kg）' % (x['kind'], '{:,}'.format(x['pots']), '{:,}'.format(x['kg'])),
+                          'now': round(now_of(k)), 'status': st, 'cls': cls})
+        tracking = {'month': Rp['month'], 'items': items,
+                    'projected': bool(preview)}
 
     return {
         'month': mlabel(Y, M), 'year': Y, 'mon': M,
         'prev_label': mlabel(*prev), 'yoy_label': mlabel(*yoy),
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'preview': preview,
         'incomplete': incomplete, 'is_latest_month': is_latest,
         'record_count': cur_count, 'median_count': median,
         'totals': {
             'pots': round(tot_pots), 'pots_prev': round(tot_pots_prev), 'pots_yoy': round(tot_pots_yoy),
             'kg': round(tot_kg), 'kg_prev': round(tot_kg_prev), 'kg_yoy': round(tot_kg_yoy),
             'items': len(active_items),
-            'mom_pct': None if mom_pct_total is None else round(mom_pct_total, 1),
-            'yoy_pct': None if yoy_pct_total is None else round(yoy_pct_total, 1),
-            'kg_mom_pct': None if pct(tot_kg, tot_kg_prev) is None else round(pct(tot_kg, tot_kg_prev), 1),
-            'kg_yoy_pct': None if pct(tot_kg, tot_kg_yoy) is None else round(pct(tot_kg, tot_kg_yoy), 1),
-            'ytd': round(ytd), 'ytd_prev': round(ytd_prev),
-            'ytd_pct': None if pct(ytd, ytd_prev) is None else round(pct(ytd, ytd_prev), 1),
+            'mom_pct': r1(mom_pct_total), 'yoy_pct': r1(yoy_pct_total),
+            'kg_mom_pct': r1(pct(tot_kg, tot_kg_prev)), 'kg_yoy_pct': r1(pct(tot_kg, tot_kg_yoy)),
+            'ytd': round(ytd), 'ytd_prev': round(ytd_prev), 'ytd_pct': r1(pct(ytd, ytd_prev)),
             'ytd_kg': round(ytd_kg), 'ytd_kg_prev': round(ytd_kg_prev),
+            'projected': round(tot_pots * preview['factor']) if preview else None,
         },
         'ex_oem': None if not has_oem else {
             'pots': round(ex_pots), 'prev': round(ex_prev), 'yoy': round(ex_yoy_v),
-            'mom_pct': None if ex_mom is None else round(ex_mom, 1),
-            'yoy_pct': None if ex_yoy_pct is None else round(ex_yoy_pct, 1),
+            'mom_pct': r1(ex_mom), 'yoy_pct': r1(ex_yoy_pct),
         },
+        'ytd': ytd_block,
         'annotated': [
             {'料號': meta[k]['料號'], '品項': meta[k]['品項'],
              'status': o.get('status'), 'label': o.get('label', ''), 'note': o.get('note', '')}
             for k, o in sorted(ov.items(), key=lambda kv: meta[kv[0]]['料號'])
         ],
-        'alerts': alerts, 'real_alert_count': len(real_alerts), 'core_real': core_real,
+        'alerts': alerts, 'grade_counts': grade_counts, 'b_threshold': b_threshold,
+        'core_loss': core_loss, 'core_loss_pct': r1(core_loss_pct),
+        # 相容舊版索引頁：警示數＝A+B 級
+        'real_alert_count': grade_counts['A'] + grade_counts['B'],
+        'core_real': a_alerts,
         'dormant': dormant, 'growth': growth[:cfg['top_n']],
         'newbies': newbies, 'returning': returning,
         'top_items': top_list, 'top_share': top_share,
         'categories': cats, 'same_month': same_month,
-        'typical_mom': typical_mom, 'seasonal_note': seasonal_note,
-        'trend': trend,
+        'typical_mom': typical_mom, 'seasonal_note': seasonal_note, 'seasonal_sample': seasonal_sample,
+        'trend': trend, 'waterfall': waterfall, 'anomalies': anomalies, 'tracking': tracking,
+        'kg_coverage': round(kg_cov, 1), 'kg_pending': kg_pending,
+        'factory_kg_per_pot': None if factory_kpp is None else round(factory_kpp, 1),
         'light': light, 'light_label': light_label, 'light_reasons': reasons,
         'config': cfg,
     }
@@ -554,54 +833,110 @@ def render_narrative(text):
 
 
 VERDICT_BADGE = {
-    'real': '<span class="tag t-red">🔴 實質接單下滑</span>',
-    'partial': '<span class="tag t-amber">🟡 部分下滑</span>',
-    'batch': '<span class="tag t-grey">⚪ 批量調整</span>',
-    'unknown': '<span class="tag t-grey">－ 無重量資料</span>',
+    'real': '<span class="tag t-grey">重量同步下降</span>',
+    'partial': '<span class="tag t-grey">重量小幅下降</span>',
+    'batch': '<span class="tag t-grey">重量持平或增加</span>',
+    'unknown': '<span class="tag t-grey">無重量資料</span>',
+    'pending': '<span class="tag t-grey">重量尚未填入</span>',
+}
+
+GRADE_BADGE = {
+    'A': '<span class="tag t-red">A 主力</span>',
+    'B': '<span class="tag t-amber">B</span>',
+    'C': '<span class="tag t-grey">C</span>',
+    'N': '<span class="tag t-note">註</span>',
 }
 
 
-def alert_rows(R):
-    if not R['alerts']:
-        return '<tr><td colspan="8" class="empty">本月沒有達到警示門檻的品項 👍</td></tr>'
+def item_cell(x, hint_word='本月'):
+    """品項欄：主力／註記標籤 + 品名 + 料號 + 改版提示。"""
+    tags = ''
+    if x.get('core'):
+        tags += '<span class="tag t-core">主力</span> '
+    if x.get('tag'):
+        tags += '<span class="tag t-note">%s</span> ' % esc(x['tag'])
+    hints = ''.join(
+        '<div class="hint">↪ 同名／同系列料號 %s %s +%s 鍋，可能為改版轉移</div>' % (
+            esc(h['料號']), hint_word, fmt(h['gain']))
+        for h in x.get('hints') or [])
+    return '%s%s<div class="sub">%s</div>%s' % (tags, esc(x['品項']), esc(x['料號']), hints)
+
+
+def alert_rows(R, grades, empty_msg):
     rows = []
     for a in R['alerts']:
-        core = '<span class="tag t-core">主力</span> ' if a['core'] else ''
-        if a.get('tag'):
-            core += '<span class="tag t-note">%s</span> ' % esc(a['tag'])
+        if a['grade'] not in grades:
+            continue
         rows.append(
-            '<tr class="%s"><td>%s%s<div class="sub">%s</div></td>'
+            '<tr class="g-%s"><td>%s</td><td>%s</td>'
             '<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td>'
             '<td class="num">%s</td><td class="num">%s</td><td class="num loss">-%s</td><td>%s</td></tr>' % (
-                'row-real' if a['verdict'] == 'real' else '',
-                core, esc(a['品項']), esc(a['料號']),
+                a['grade'], GRADE_BADGE[a['grade']], item_cell(a),
                 fmt(a['pots_cur']), fmt(a['pots_prev']), fmt(a['pots_yoy']),
                 pct_span(a['mom_pct']), pct_span(a['yoy_pct']),
                 fmt(a['loss']), VERDICT_BADGE.get(a['verdict'], '')))
-    return '\n'.join(rows)
+    return '\n'.join(rows) if rows else '<tr><td colspan="9" class="empty">%s</td></tr>' % empty_msg
 
 
 def dormant_rows(R):
     if not R['dormant']:
-        return '<tr><td colspan="4" class="empty">本月沒有斷單品項 👍</td></tr>'
+        return '<tr><td colspan="6" class="empty">%s</td></tr>' % (
+            '目前沒有「常態生產但本月尚未生產」的品項' if R.get('preview') else '本月沒有斷單品項 👍')
+    rows = []
+    for d in R['dormant']:
+        if R.get('preview'):
+            st = '<span class="tag t-grey">尚未生產</span>'
+        elif d.get('suspect_lost'):
+            st = '<span class="tag t-red">疑似流失</span>'
+        else:
+            st = '<span class="tag t-amber">斷單</span>'
+        last = '%s（%s 鍋）' % (d['last_seen'], fmt(d['last_seen_pots'])) if d.get('last_seen') else '—'
+        rows.append('<tr><td>%s</td><td class="num">%s</td><td class="num">%s</td>'
+                    '<td class="num">%s</td><td class="num">%s 月</td><td>%s</td></tr>' % (
+                        item_cell(d), d['active_months'], fmt(d['avg_pots']), last,
+                        d['gap_months'], st))
+    return '\n'.join(rows)
+
+
+def anomaly_rows(R):
+    if R.get('kg_pending'):
+        return ('<tr><td colspan="7" class="empty">本月重量資料尚未填入（有重量的鍋數僅占 %s%%），'
+                '暫不檢查；重量補齊後重新產生即可。</td></tr>' % R['kg_coverage'])
+    if not R['anomalies']:
+        return '<tr><td colspan="7" class="empty">本月沒有鍋數與重量不匹配的品項 👍</td></tr>'
     return '\n'.join(
-        '<tr><td>%s%s<div class="sub">%s</div></td><td class="num">%s</td>'
-        '<td class="num">%s</td><td class="num">%s</td></tr>' % (
-            ('<span class="tag t-core">主力</span> ' if d['core'] else '')
-            + ('<span class="tag t-note">%s</span> ' % esc(d['tag']) if d.get('tag') else ''),
-            esc(d['品項']), esc(d['料號']),
-            d['active_months'], fmt(d['avg_pots']), fmt(d['last_pots']))
-        for d in R['dormant'])
+        '<tr><td>%s</td><td class="num">%s</td><td class="num">%s</td><td class="num">%s</td>'
+        '<td class="num">%s</td><td class="num">%s</td><td><span class="tag t-red">%s</span></td></tr>' % (
+            item_cell(x), fmt(x['pots']), fmt(x['kg']), x['kg_per_pot'],
+            '—' if x['hist_median'] is None else '%s<div class="sub">%s</div>' % (x['hist_median'], esc(x.get('basis') or '')),
+            '—' if x['dev_pct'] is None else pct_txt(x['dev_pct']), esc(x['kind']))
+        for x in R['anomalies'])
+
+
+TRACK_BADGE = {'ok': 't-green', 'mid': 't-amber', 'bad': 't-red'}
+
+
+def tracking_rows(R):
+    tr = R.get('tracking')
+    if not tr or not tr['items']:
+        return '<tr><td colspan="5" class="empty">上期沒有需追蹤的事項</td></tr>'
+    order = {'bad': 0, 'mid': 1, 'ok': 2}
+    items = sorted(tr['items'], key=lambda i: order.get(i['cls'], 3))
+    return '\n'.join(
+        '<tr><td>%s</td><td>%s</td><td>%s</td><td class="num">%s</td>'
+        '<td><span class="tag %s">%s</span></td></tr>' % (
+            esc(i['kind']), item_cell(i), esc(i['then']), fmt(i['now']),
+            TRACK_BADGE.get(i['cls'], 't-grey'), esc(i['status']))
+        for i in items)
 
 
 def growth_rows(R):
     if not R['growth']:
         return '<tr><td colspan="6" class="empty">本月沒有明顯成長的品項</td></tr>'
     return '\n'.join(
-        '<tr><td>%s%s<div class="sub">%s</div></td><td class="num">%s</td><td class="num">%s</td>'
+        '<tr><td>%s</td><td class="num">%s</td><td class="num">%s</td>'
         '<td class="num">%s</td><td class="num gain">+%s</td><td class="num">%s</td></tr>' % (
-            '<span class="tag t-note">%s</span> ' % esc(g['tag']) if g.get('tag') else '',
-            esc(g['品項']), esc(g['料號']), fmt(g['pots_cur']), fmt(g['pots_prev']),
+            item_cell(g), fmt(g['pots_cur']), fmt(g['pots_prev']),
             fmt(g['pots_yoy']), fmt(g['gain']), pct_span(g['mom_pct']))
         for g in R['growth'])
 
@@ -631,7 +966,7 @@ TPL = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>生產鍋數月報 __MONTH__</title>
+<title>生產鍋數月報 __MONTH____TITLE_SUFFIX__</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;
@@ -658,6 +993,13 @@ h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
 .note{padding:11px 15px;border-radius:9px;font-size:13px;margin-bottom:18px;}
 .note.warn{background:#fef3c7;border:1px solid #f6d68a;color:#92400e;}
 .note.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
+.note.preview{background:#fff7ed;border:2px solid #fb923c;color:#9a3412;font-size:13.5px;}
+.hint{font-size:11px;color:#b45309;margin-top:2px;}
+tr.g-A{background:#fff7f7;}
+details.more{margin-top:12px;} details.more summary{cursor:pointer;font-size:12.5px;color:var(--blue);padding:6px 0;}
+.hero{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+.hero .big{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;}
+.hero .cmp{font-size:13px;color:var(--t3);font-family:var(--mono);}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th,td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
 th{background:#f8fafc;font-size:11.5px;color:var(--t3);font-weight:600;white-space:nowrap;}
@@ -687,8 +1029,8 @@ footer{margin-top:26px;font-size:11.5px;color:var(--t4);line-height:1.8;}
 <div class="wrap">
 <header class="top">
   <div>
-    <h1>生產鍋數月報 · __MONTH__</h1>
-    <div class="sub">業務量／接單趨勢分析　｜　與 __PREV__（上月）、__YOY__（去年同月）比較　｜　產生於 __GEN__</div>
+    <h1>生產鍋數月報 · __MONTH____TITLE_SUFFIX__</h1>
+    <div class="sub">__HEADER_SUB__　｜　產生於 __GEN__</div>
   </div>
   <div class="light __LIGHT__">__LIGHT_ICON__ __LIGHT_LABEL__</div>
 </header>
@@ -696,14 +1038,14 @@ footer{margin-top:26px;font-size:11.5px;color:var(--t4);line-height:1.8;}
 __WARN__
 
 <div class="kpis">
-  <div class="kpi"><div class="lab">本月總鍋數</div><div class="val">__POTS__</div>
-    <div class="dlt">環比 __POTS_MOM__ ｜ 同比 __POTS_YOY__</div></div>
-  <div class="kpi"><div class="lab">本月總重量 (kg)</div><div class="val">__KG__</div>
-    <div class="dlt">環比 __KG_MOM__ ｜ 同比 __KG_YOY__</div></div>
+  <div class="kpi"><div class="lab">__CUR_WORD__總鍋數</div><div class="val">__POTS__</div>
+    <div class="dlt">環比 __POTS_MOM__ ｜ 同比 __POTS_YOY__</div>__PROJ__</div>
+  <div class="kpi"><div class="lab">__CUR_WORD__總重量 (kg)</div><div class="val">__KG__</div>
+    <div class="dlt">__KG_DLT__</div></div>
   <div class="kpi"><div class="lab">生產品項數</div><div class="val">__ITEMS__</div>
     <div class="dlt">前 __TOPN__ 大占 __TOPSHARE__%</div></div>
-  <div class="kpi"><div class="lab">接單下滑警示</div><div class="val">__ALERTS__</div>
-    <div class="dlt">斷單 __DORMANT__ 項</div></div>
+  <div class="kpi"><div class="lab">接單下滑警示（A+B 級）</div><div class="val">__ALERTS__</div>
+    <div class="dlt">A __GA__ ｜ B __GB__ ｜ __DORMANT_WORD__ __DORMANT__</div></div>
 </div>
 
 <div class="card">
@@ -715,40 +1057,75 @@ __WARN__
 </div>
 
 <div class="card">
-  <h2>整體業務量趨勢</h2>
-  <div class="csub">近 __TRENDN__ 個月：柱狀為鍋數、折線為半成品重量(kg)。兩者背離時代表批量結構改變，而非單純接單增減。</div>
-  <div class="chart tall"><canvas id="trendChart"></canvas></div>
-</div>
-
-<div class="g2">
-  <div class="card"><h2>本月 vs 上月 vs 去年同月</h2><div class="csub">鍋數與重量雙軌對照</div>
-    <div class="chart"><canvas id="cmpChart"></canvas></div></div>
-  <div class="card"><h2>季節性對照</h2><div class="csub">歷年同月份（__MONTHNUM__月）總鍋數，用以區分季節性淡季與實質衰退</div>
-    <div class="chart"><canvas id="seasonChart"></canvas></div></div>
-</div>
-
-<div class="card">
-  <h2>接單下滑警示 — 流失鍋數 Top __TOPN__</h2>
-  <div class="csub">與上月／去年同月相比降幅達 __DECLINE__% 且基準量 ≥ __SCALE__ 鍋者，依流失鍋數由大到小排序</div>
-  <div class="chart tall"><canvas id="declineChart"></canvas></div>
-</div>
-
-<div class="card">
-  <h2>接單下滑警示明細</h2>
-  <div class="csub">「判讀」欄以半成品重量交叉驗證：鍋數下降但重量持平，代表批量調整而非接單下滑</div>
+  <h2>上期追蹤 — __TRACK_MONTH__ 點名事項</h2>
+  <div class="csub">__TRACK_SUB__</div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>品項</th><th class="num">本月</th><th class="num">上月</th><th class="num">去年同月</th>
-      <th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>判讀</th></tr></thead>
-    <tbody>__ALERT_ROWS__</tbody>
+    <thead><tr><th>類型</th><th>品項</th><th>上期狀況</th><th class="num">__TRACK_NOW__</th><th>本月狀態</th></tr></thead>
+    <tbody>__TRACK_ROWS__</tbody>
   </table></div>
 </div>
 
 <div class="card">
-  <h2>斷單警示</h2>
-  <div class="csub">前 __LOOKBACK__ 個月中有 ≥__MINACTIVE__ 個月正常生產，但本月完全沒有生產</div>
+  <h2>環比變動拆解</h2>
+  <div class="csub">__WF_SUB__</div>
+  <div class="chart tall"><canvas id="wfChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>整體業務量趨勢</h2>
+  <div class="csub">近 __TRENDN__ 個月：柱狀為鍋數、折線為半成品重量(kg)。以鍋數為主要指標，重量為輔助參考。__TREND_NOTE__</div>
+  <div class="chart tall"><canvas id="trendChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>年度累計（YTD）</h2>
+  <div class="hero"><div class="big">__YTD_POTS__ 鍋</div><div class="cmp">較去年同期 __YTD_PCT__（去年 __YTD_PREV__ 鍋）</div></div>
+  <div class="csub">__YTD_NOTE__</div>
+  <div class="chart"><canvas id="ytdChart"></canvas></div>
+</div>
+
+<div class="g2">
+  <div class="card"><h2>__CMP_TITLE__</h2><div class="csub">鍋數與重量雙軌對照</div>
+    <div class="chart"><canvas id="cmpChart"></canvas></div></div>
+  <div class="card"><h2>季節性對照</h2><div class="csub">歷年同月份（__MONTHNUM__月__SEASON_PERIOD__）總鍋數，用以區分季節性淡季與實質衰退。__SEASON_SAMPLE__</div>
+    <div class="chart"><canvas id="seasonChart"></canvas></div></div>
+</div>
+
+<div class="card">
+  <h2>接單下滑警示 — A／B 級流失鍋數</h2>
+  <div class="csub">依流失鍋數由大到小，最多列 __TOPN__ 項（C 級與季節性代工不列入圖表）</div>
+  <div class="chart tall"><canvas id="declineChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>接單下滑警示明細（分級）</h2>
+  <div class="csub">觸發條件：較__PREV_WORD__或__YOY_WORD__降幅 ≥ __DECLINE__% 且基準量 ≥ __SCALE__ 鍋。
+    <strong>A 級</strong>＝主力品項（不設門檻）｜<strong>B 級</strong>＝非主力且流失 ≥ __BTHR__ 鍋（本業總鍋數的 __BPCT__%）｜<strong>C 級</strong>＝其餘，預設收合｜<strong>註</strong>＝季節性代工。
+    分級只看鍋數；「重量參考」欄僅供參考，不影響分級。</div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>品項</th><th class="num">前期活躍月數</th><th class="num">平均月鍋數</th><th class="num">上月鍋數</th></tr></thead>
+    <thead><tr><th>等級</th><th>品項</th><th class="num">__CUR_COL__</th><th class="num">__PREV_COL__</th><th class="num">__YOY_COL__</th>
+      <th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>重量參考</th></tr></thead>
+    <tbody>__ALERT_ROWS__</tbody>
+  </table></div>
+  __C_DETAILS__
+</div>
+
+<div class="card">
+  <h2>__DORMANT_TITLE__</h2>
+  <div class="csub">__DORMANT_SUB__</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th class="num">前期活躍月數</th><th class="num">平均月鍋數</th><th class="num">最後生產月</th><th class="num">連續未生產</th><th>狀態</th></tr></thead>
     <tbody>__DORMANT_ROWS__</tbody>
+  </table></div>
+</div>
+
+<div class="card">
+  <h2>資料異常 — 請製造單位說明</h2>
+  <div class="csub">條件：本月鍋數 ≥ __AN_MIN__ 且 (1)「有鍋數但重量為 0」；(2) 每鍋重量偏離該品項前 12 個月中位數 ±__AN_PCT__% 以上；或 (3) 歷史不足 __AN_HIST__ 個月的品項，每鍋重量低於全廠平均的 __AN_LOW__% 或高於 __AN_HIGH__%。本報告不推測原因，請製造單位說明。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th class="num">本月鍋數</th><th class="num">本月重量 kg</th><th class="num">每鍋 kg</th>
+      <th class="num">比較基準 kg</th><th class="num">偏離</th><th>異常類型</th></tr></thead>
+    <tbody>__ANOMALY_ROWS__</tbody>
   </table></div>
 </div>
 
@@ -762,7 +1139,7 @@ __WARN__
 <div class="card">
   <h2>成長品項明細</h2>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>品項</th><th class="num">本月</th><th class="num">上月</th><th class="num">去年同月</th>
+    <thead><tr><th>品項</th><th class="num">__CUR_COL__</th><th class="num">__PREV_COL__</th><th class="num">__YOY_COL__</th>
       <th class="num">增加鍋數</th><th class="num">環比</th></tr></thead>
     <tbody>__GROWTH_ROWS__</tbody>
   </table></div>
@@ -787,7 +1164,8 @@ __WARN__
 <footer>
   資料來源：<code>data/latest.xlsx</code> →「資料總表」　｜　分析邏輯與門檻：<code>docs/monthly-report-logic.md</code><br>
   本報告聚焦業務量（鍋數為主、半成品重量交叉驗證）；製成率／品質分析由「產品工時及製成率統計系統」負責，不在本報告範圍。<br>
-  警示門檻：降幅 ≥__DECLINE__%、基準量 ≥__SCALE__ 鍋　｜　斷單：前 __LOOKBACK__ 個月 ≥__MINACTIVE__ 月有生產而本月為 0
+  警示門檻：降幅 ≥__DECLINE__%、基準量 ≥__SCALE__ 鍋；B 級流失 ≥ 本業總鍋數 __BPCT__%　｜　斷單：前 __LOOKBACK__ 個月 ≥__MINACTIVE__ 月有生產而本月為 0，連續 ≥__LOSTM__ 月列為疑似流失<br>
+  燈號：🔴 本業同比 ≤ −__DECLINE__%、主力品項斷單__REDGAP__，或主力品項流失合計 ≥ 本業 __REDPCT__%　｜　🟡 有主力品項衰退但未達紅燈　｜　🟢 總量未衰退且無主力警示
   __ANNOTATED__
 </footer>
 </div>
@@ -826,7 +1204,8 @@ new Chart(document.getElementById('trendChart'), {
 // 2. 三期比較
 new Chart(document.getElementById('cmpChart'), {
   type:'bar',
-  data:{labels:['本月 '+R.month, '上月 '+R.prev_label, '去年同月 '+R.yoy_label], datasets:[
+  data:{labels:R.preview ? ['本月至今 '+R.preview.cur_period, '上月同期 '+R.preview.prev_period, '去年同期 '+R.preview.yoy_period]
+                         : ['本月 '+R.month, '上月 '+R.prev_label, '去年同月 '+R.yoy_label], datasets:[
     {label:'鍋數', data:[R.totals.pots, R.totals.pots_prev, R.totals.pots_yoy], backgroundColor:C.blue+'cc', borderRadius:5, yAxisID:'y'},
     {label:'重量 (kg)', data:[R.totals.kg, R.totals.kg_prev, R.totals.kg_yoy], backgroundColor:C.teal+'99', borderRadius:5, yAxisID:'y1'}
   ]},
@@ -849,12 +1228,12 @@ new Chart(document.getElementById('seasonChart'), {
 });
 
 // 4. 衰退 Top N
-const dec = R.alerts.slice(0, R.config.top_n);
+const dec = R.alerts.filter(a=>a.grade==='A'||a.grade==='B').slice(0, R.config.top_n);
 new Chart(document.getElementById('declineChart'), {
   type:'bar',
   data:{labels:dec.map(a=>shortName(a['品項'])), datasets:[
-    {label:'較上月流失鍋數', data:dec.map(a=>Math.max(0, a.pots_prev-a.pots_cur)), backgroundColor:C.red+'bb', borderRadius:4},
-    {label:'較去年同月流失鍋數', data:dec.map(a=>Math.max(0, a.pots_yoy-a.pots_cur)), backgroundColor:C.amber+'99', borderRadius:4}
+    {label:R.preview?'較上月同期流失鍋數':'較上月流失鍋數', data:dec.map(a=>Math.max(0, a.pots_prev-a.pots_cur)), backgroundColor:C.red+'bb', borderRadius:4},
+    {label:R.preview?'較去年同期流失鍋數':'較去年同月流失鍋數', data:dec.map(a=>Math.max(0, a.pots_yoy-a.pots_cur)), backgroundColor:C.amber+'99', borderRadius:4}
   ]},
   options: hOpts()
 });
@@ -882,14 +1261,58 @@ new Chart(document.getElementById('paretoChart'), {
   }})
 });
 
+// 8. 環比瀑布（浮動長條：總量為藍、減少為紅、增加為綠）
+(function(){
+  const W = R.waterfall, labels = [], data = [], colors = [], deltas = [];
+  let run = W.start, lo = Math.min(W.start, W.end), hi = Math.max(W.start, W.end);
+  W.steps.forEach(st => { run += st.delta; lo = Math.min(lo, run); hi = Math.max(hi, run); });
+  run = W.start;
+  // 縱軸不從 0 開始，否則小幅增減會看不見（總量長條以截斷方式呈現，說明文字已註明）
+  const pad = Math.max(50, (hi - lo) * 0.15), step = Math.pow(10, Math.floor(Math.log10(Math.max(1, hi - lo + 2*pad))));
+  const yMin = Math.max(0, Math.floor((lo - pad) / step) * step);
+  labels.push(R.preview ? '上月同期' : '上月 '+R.prev_label); data.push([0, W.start]); colors.push(C.blue+'cc'); deltas.push(null);
+  W.steps.forEach(st => {
+    const next = run + st.delta;
+    labels.push(shortName(st.label)); data.push([Math.min(run, next), Math.max(run, next)]);
+    colors.push(st.delta < 0 ? C.red+'bb' : C.green+'bb'); deltas.push(st.delta);
+    run = next;
+  });
+  labels.push(R.preview ? '本月至今' : '本月 '+R.month); data.push([0, W.end]); colors.push(C.blue+'cc'); deltas.push(null);
+  const fullNames = [labels[0]].concat(W.steps.map(st => st.label + (st.code ? '（'+st.code+'）' : ''))).concat([labels[labels.length-1]]);
+  new Chart(document.getElementById('wfChart'), {
+    type:'bar',
+    data:{labels:labels, datasets:[{label:'鍋數', data:data, backgroundColor:colors, borderRadius:3, borderSkipped:false}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        title:(items)=>fullNames[items[0].dataIndex],
+        label:(ctx)=>{const d=deltas[ctx.dataIndex]; const v=ctx.raw;
+          return d===null ? '合計 '+(v[1]).toLocaleString()+' 鍋' : (d>0?'+':'')+d.toLocaleString()+' 鍋';}}}},
+      scales:{x:{grid:{display:false}, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
+              y:{grid:grid, ticks:tick, min:yMin, title:{display:true, text:'鍋數', color:'#64748b', font:{size:11}}}}}
+  });
+})();
+
+// 9. YTD 累計（今年 vs 去年；有季節性代工時主線為排除後）
+(function(){
+  const Y = R.ytd, S = Y.series, ds = [
+    {label:(Y.has_oem?'今年（排除季節性代工）':'今年'), data:S.this_ex, borderColor:C.blue, backgroundColor:C.blue, borderWidth:2, pointRadius:3, tension:.2},
+    {label:(Y.has_oem?'去年（排除季節性代工）':'去年'), data:S.last_ex, borderColor:C.grey, backgroundColor:C.grey, borderWidth:2, pointRadius:3, tension:.2}
+  ];
+  if (Y.has_oem) ds.push({label:'今年（含季節性代工）', data:S.this_all, borderColor:C.amber, backgroundColor:C.amber,
+    borderWidth:2, borderDash:[5,4], pointRadius:2, tension:.2});
+  new Chart(document.getElementById('ytdChart'), {type:'line', data:{labels:S.labels, datasets:ds},
+    options: baseOpts({scales:{x:{grid:{display:false}, ticks:tick},
+      y:{grid:grid, ticks:tick, beginAtZero:true, title:{display:true, text:'累計鍋數', color:'#64748b', font:{size:11}}}}})});
+})();
+
 // 7. 類別
 const cats = Object.keys(R.categories);
 new Chart(document.getElementById('catChart'), {
   type:'bar',
   data:{labels:cats, datasets:[
-    {label:'本月', data:cats.map(c=>R.categories[c].pots), backgroundColor:C.blue+'cc', borderRadius:5},
-    {label:'上月', data:cats.map(c=>R.categories[c].prev), backgroundColor:C.grey+'99', borderRadius:5},
-    {label:'去年同月', data:cats.map(c=>R.categories[c].yoy), backgroundColor:C.amber+'99', borderRadius:5}
+    {label:R.preview?'本月至今':'本月', data:cats.map(c=>R.categories[c].pots), backgroundColor:C.blue+'cc', borderRadius:5},
+    {label:R.preview?'上月同期':'上月', data:cats.map(c=>R.categories[c].prev), backgroundColor:C.grey+'99', borderRadius:5},
+    {label:R.preview?'去年同期':'去年同月', data:cats.map(c=>R.categories[c].yoy), backgroundColor:C.amber+'99', borderRadius:5}
   ]},
   options: baseOpts({scales:{x:{grid:{display:false}, ticks:tick}, y:{grid:grid, ticks:tick, beginAtZero:true}}})
 });
@@ -904,9 +1327,25 @@ LIGHT_ICON = {'red': '🔴', 'yellow': '🟡', 'green': '🟢'}
 def build_html(R, narrative):
     t = R['totals']
     cfg = R['config']
+    pv = R.get('preview')
+    gc = R['grade_counts']
     warn = ''
-    if R['incomplete']:
-        warn = ('<div class="note warn">⚠️ <strong>%s 的資料可能尚未補齊</strong>：本月僅 %d 筆紀錄，'
+    if pv:
+        warn = ('<div class="note preview">⏳ <strong>期中預覽 — 本月尚未結束，非正式月報</strong>：'
+                '資料截至 <strong>%s</strong>（第 %d 天／共 %d 天）。所有比較皆採「同期」口徑'
+                '（本月 %s 對比上月 %s、去年 %s）；推估全月為依日曆天等比例換算，僅供參考。'
+                '斷單與燈號皆為暫定，正式結論以下月初的正式月報為準。%s</div>' % (
+                    pv['asof'], pv['day'], pv['days_in_month'], pv['cur_period'],
+                    pv['prev_period'], pv['yoy_period'],
+                    ('<br>⚠️ 目前僅 %d 天資料，單日排程差異就會讓比較大幅波動，判讀請保守。' % pv['day']
+                     if pv['day'] < 10 else '')
+                    + ('<br>⚖️ 本月重量尚未填入（有重量的鍋數僅占 %s%%），重量相關數字暫不具參考性。' % R['kg_coverage']
+                       if R.get('kg_pending') else '')))
+    elif R.get('kg_pending'):
+        warn = ('<div class="note warn">⚖️ <strong>本月重量資料尚未填入</strong>：有重量的鍋數僅占 %s%%，'
+                '重量相關數字與資料異常檢查暫不具參考性。</div>' % R['kg_coverage'])
+    if not pv and R['incomplete']:
+        warn += ('<div class="note warn">⚠️ <strong>%s 的資料可能尚未補齊</strong>：本月僅 %d 筆紀錄，'
                 '約為其他月份中位數 %d 的 %d%%。報告數字可能低估，請確認資料是否完整後重新產生。</div>' % (
                     R['month'], R['record_count'], R['median_count'],
                     round(R['record_count'] / R['median_count'] * 100) if R['median_count'] else 0))
@@ -920,7 +1359,7 @@ def build_html(R, narrative):
     ann = ''
     if R.get('annotated'):
         STATUS_EFFECT = {'discontinued': '不列入警示與燈號',
-                         'seasonal_oem': '不列主力、不觸發燈號、另計排除後總量'}
+                         'seasonal_oem': '不列主力、不參與分級與燈號、YTD 另計'}
         parts = ['<strong>%s</strong> %s（%s）%s' % (
             esc(a['label']), esc(a['品項']), esc(a['料號']),
             STATUS_EFFECT.get(a['status'], '')) for a in R['annotated']]
@@ -928,26 +1367,129 @@ def build_html(R, narrative):
 
     season = ''
     if R['seasonal_note']:
-        season = '<div class="note info" style="margin:14px 0 0">📅 <strong>季節性判讀：</strong>%s</div>' % esc(R['seasonal_note'])
+        season = '<div class="note info" style="margin:14px 0 0">📅 <strong>季節性判讀：</strong>%s<br><span style="font-size:12px">%s</span></div>' % (
+            esc(R['seasonal_note']), esc(R.get('seasonal_sample') or ''))
 
+    # 比較口徑用詞（期中預覽改為「同期」）
+    if pv:
+        cur_col, prev_col, yoy_col = '本月至今', '上月同期', '去年同期'
+        prev_word, yoy_word = '上月同期', '去年同期'
+        header_sub = '期中預覽｜資料截至 %s　｜　與上月同期（%s）、去年同期（%s）比較' % (
+            pv['asof'], pv['prev_period'], pv['yoy_period'])
+        cur_word = '本月至今'
+        proj = '<div class="dlt">推估全月約 %s 鍋（僅供參考）</div>' % fmt(t['projected'])
+        cmp_title = '本月至今 vs 上月同期 vs 去年同期'
+        season_period = '' if pv['full_month'] else '，1–%d 日同期' % pv['day']
+    else:
+        cur_col, prev_col, yoy_col = '本月', '上月', '去年同月'
+        prev_word, yoy_word = '上月', '去年同月'
+        header_sub = '業務量／接單趨勢分析　｜　與 %s（上月）、%s（去年同月）比較' % (R['prev_label'], R['yoy_label'])
+        cur_word = '本月'
+        proj = ''
+        cmp_title = '本月 vs 上月 vs 去年同月'
+        season_period = ''
+
+    # C 級收合
+    c_details = ''
+    if gc['C']:
+        c_details = ('<details class="more"><summary>展開 C 級 %d 項（非主力、流失 &lt; %s 鍋）</summary>'
+                     '<div class="tbl-wrap"><table><thead><tr><th>等級</th><th>品項</th><th class="num">%s</th>'
+                     '<th class="num">%s</th><th class="num">%s</th><th class="num">環比</th><th class="num">同比</th>'
+                     '<th class="num">流失鍋數</th><th>重量參考</th></tr></thead><tbody>%s</tbody></table></div></details>' % (
+                         gc['C'], fmt(R['b_threshold']), cur_col, prev_col, yoy_col,
+                         alert_rows(R, ('C',), '')))
+
+    # 上期追蹤
+    tr = R.get('tracking')
+    if tr:
+        track_month = tr['month']
+        track_sub = ('依現行規則，%s 列為 A／B 級衰退、斷單或資料異常的品項，在本月的狀態（需處理的排在最前面）。'
+                     '「已恢復」＝回到當時比較基準的 90%% 以上。' % tr['month'])
+        if pv:
+            track_sub += '本月數字為依進度推估的全月量，狀態為暫定。'
+    else:
+        track_month, track_sub = R['prev_label'], '資料中沒有上月紀錄，無法追蹤。'
+
+    # 瀑布說明
+    W = R['waterfall']
+    wf_sub = '%s %s 鍋 → %s %s 鍋：減少合計 %s 鍋、增加合計 +%s 鍋。列出增減最大的各 %d 項，其餘合併；縱軸未從 0 開始以便看清增減，游標移到長條上可看完整品名與數字。' % (
+        '上月同期' if pv else '上月', fmt(W['start']), cur_word, fmt(W['end']),
+        fmt(W['dec_total']), fmt(W['inc_total']), int(cfg.get('waterfall_items', 5)))
+
+    # YTD
+    yb = R['ytd']
+    if yb['has_oem']:
+        ytd_note = ('已排除季節性代工品項 %s：今年 %s 鍋、去年同期 %s 鍋。若包含，今年累計為 %s 鍋（較去年同期 %s）。'
+                    '代工量體大且間歇，排除後較能反映本業的年度走勢。' % (
+                        esc(yb['oem_names']), fmt(yb['oem_pots']), fmt(yb['oem_pots_prev']),
+                        fmt(yb['all_pots']), pct_txt(yb['all_pct'])))
+    else:
+        ytd_note = '1 月至本月累計鍋數，今年 vs 去年同期。'
+    if pv and not pv['full_month']:
+        ytd_note += '本月以 %s 同期計算。' % pv['cur_period']
+
+    if pv:
+        dormant_title = '截至目前尚未生產（非斷單）'
+        dormant_sub = ('前 %s 個月中有 ≥%s 個月正常生產，但本月截至 %s 尚未生產。本月尚未結束，'
+                       '不列為斷單、不影響燈號；開會時可確認是否已排程。' % (
+                           cfg['dormant_lookback'], cfg['dormant_min_active'], pv['asof']))
+        dormant_word = '尚未生產'
+    else:
+        dormant_title = '斷單警示'
+        dormant_sub = ('前 %s 個月中有 ≥%s 個月正常生產，但本月完全沒有生產。連續未生產 ≥ %s 個月列為「疑似流失」。' % (
+            cfg['dormant_lookback'], cfg['dormant_min_active'], cfg.get('dormant_lost_months', 3)))
+        dormant_word = '斷單'
+
+    trend_note = ''
+    if pv:
+        trend_note = '（標 * 的本月為截至 %s，尚未完整）' % pv['asof']
+
+    empty_ab = '本期沒有 A／B 級警示 👍' + ('（C 級 %d 項已收合於下方）' % gc['C'] if gc['C'] else '')
     repl = {
         '__MONTH__': R['month'], '__PREV__': R['prev_label'], '__YOY__': R['yoy_label'],
+        '__TITLE_SUFFIX__': '（期中預覽）' if pv else '',
+        '__HEADER_SUB__': header_sub,
         '__GEN__': R['generated_at'], '__MONTHNUM__': str(R['mon']),
         '__LIGHT__': R['light'], '__LIGHT_LABEL__': R['light_label'],
         '__LIGHT_ICON__': LIGHT_ICON.get(R['light'], ''),
         '__REASONS__': esc('；'.join(R['light_reasons'])),
         '__WARN__': warn, '__SEASON__': season,
         '__EXOEM__': exo, '__ANNOTATED__': ann,
-        '__POTS__': fmt(t['pots']), '__KG__': fmt(t['kg']), '__ITEMS__': str(t['items']),
+        '__CUR_WORD__': cur_word, '__PROJ__': proj,
+        '__POTS__': fmt(t['pots']), '__KG__': '—' if R.get('kg_pending') else fmt(t['kg']), '__ITEMS__': str(t['items']),
         '__POTS_MOM__': pct_span(t['mom_pct']), '__POTS_YOY__': pct_span(t['yoy_pct']),
-        '__KG_MOM__': pct_span(t['kg_mom_pct']), '__KG_YOY__': pct_span(t['kg_yoy_pct']),
-        '__ALERTS__': str(R['real_alert_count']), '__DORMANT__': str(len(R['dormant'])),
+        '__KG_DLT__': ('重量尚未填入' if R.get('kg_pending') else
+                       '環比 %s ｜ 同比 %s' % (pct_span(t['kg_mom_pct']), pct_span(t['kg_yoy_pct']))),
+        '__ALERTS__': str(gc['A'] + gc['B']), '__GA__': str(gc['A']), '__GB__': str(gc['B']),
+        '__DORMANT__': str(len(R['dormant'])), '__DORMANT_WORD__': dormant_word,
+        '__DORMANT_TITLE__': dormant_title, '__DORMANT_SUB__': dormant_sub,
         '__TOPSHARE__': str(R['top_share']), '__TOPN__': str(cfg['top_n']),
         '__DECLINE__': str(cfg['decline_pct']), '__SCALE__': str(cfg['min_scale_pots']),
+        '__BTHR__': fmt(R['b_threshold']), '__BPCT__': '%g' % float(cfg.get('b_grade_pct', 1)),
+        '__REDPCT__': '%g' % float(cfg.get('red_core_loss_pct', 15)),
+        '__REDGAP__': '' if int(cfg.get('red_core_dormant_months', 1)) <= 1 else '（連續 ≥%d 月）' % int(cfg['red_core_dormant_months']),
+        '__LOSTM__': str(cfg.get('dormant_lost_months', 3)),
+        '__AN_MIN__': '%g' % float(cfg.get('anomaly_min_pots', 5)),
+        '__AN_PCT__': '%g' % float(cfg.get('anomaly_dev_pct', 50)),
+        '__AN_HIST__': str(cfg.get('anomaly_min_history', 3)),
+        '__AN_LOW__': '%g' % float(cfg.get('anomaly_new_low_pct', 20)),
+        '__AN_HIGH__': '%g' % float(cfg.get('anomaly_new_high_pct', 300)),
         '__LOOKBACK__': str(cfg['dormant_lookback']), '__MINACTIVE__': str(cfg['dormant_min_active']),
-        '__TRENDN__': str(len(R['trend'])),
-        '__NARRATIVE__': render_narrative(narrative) if narrative else render_narrative(None) % R['month'],
-        '__ALERT_ROWS__': alert_rows(R), '__DORMANT_ROWS__': dormant_rows(R),
+        '__TRENDN__': str(len(R['trend'])), '__TREND_NOTE__': trend_note,
+        '__CUR_COL__': cur_col, '__PREV_COL__': prev_col, '__YOY_COL__': yoy_col,
+        '__PREV_WORD__': prev_word, '__YOY_WORD__': yoy_word, '__CMP_TITLE__': cmp_title,
+        '__SEASON_PERIOD__': season_period, '__SEASON_SAMPLE__': esc(R.get('seasonal_sample') or ''),
+        '__TRACK_MONTH__': track_month, '__TRACK_SUB__': track_sub,
+        '__TRACK_NOW__': '本月（推估）' if pv else '本月',
+        '__TRACK_ROWS__': tracking_rows(R),
+        '__WF_SUB__': wf_sub,
+        '__YTD_POTS__': fmt(yb['pots']), '__YTD_PCT__': pct_span(yb['pct']),
+        '__YTD_PREV__': fmt(yb['pots_prev']), '__YTD_NOTE__': ytd_note,
+        '__NARRATIVE__': render_narrative(narrative) if narrative else render_narrative(None) % (
+            R['month'] + ('-preview' if pv else '')),
+        '__ALERT_ROWS__': alert_rows(R, ('A', 'B', 'N'), empty_ab),
+        '__C_DETAILS__': c_details,
+        '__DORMANT_ROWS__': dormant_rows(R), '__ANOMALY_ROWS__': anomaly_rows(R),
         '__GROWTH_ROWS__': growth_rows(R), '__NEWRET_ROWS__': newret_rows(R),
         '__TOP_ROWS__': top_rows(R),
         '__DATA__': json.dumps(R, ensure_ascii=False).replace('</', '<\\/'),
@@ -959,9 +1501,9 @@ def build_html(R, narrative):
 
 
 def build_index():
-    entries = []
-    for fn in sorted(os.listdir(REPORTS), reverse=True):
-        m = re.match(r'^(\d{4})-(\d{2})\.json$', fn)
+    formal, previews = {}, {}
+    for fn in os.listdir(REPORTS):
+        m = re.match(r'^(\d{4})-(\d{2})(-preview)?\.json$', fn)
         if not m:
             continue
         try:
@@ -969,19 +1511,31 @@ def build_index():
                 R = json.load(f)
         except Exception:
             continue
-        entries.append(R)
+        (previews if m.group(3) else formal)[m.group(1) + '-' + m.group(2)] = R
+    # 正式月報產生後，同月份的期中預覽即不再列出
+    entries = [(k, R, False) for k, R in formal.items()]
+    entries += [(k, R, True) for k, R in previews.items() if k not in formal]
+    entries.sort(key=lambda e: e[0], reverse=True)
     rows = []
-    for R in entries:
+    for stem, R, is_pv in entries:
         t = R['totals']
+        gc = R.get('grade_counts')
+        if gc:
+            alert_txt = '警示 A %d／B %d ｜ %s %d' % (
+                gc['A'], gc['B'], '尚未生產' if is_pv else '斷單', len(R['dormant']))
+        else:
+            alert_txt = '警示 %d ｜ 斷單 %d' % (R['real_alert_count'], len(R['dormant']))
+        month_txt = esc(R['month'])
+        if is_pv:
+            month_txt += '<div class="pv">期中預覽<br>截至 %s</div>' % esc(R['preview']['asof'][5:].replace('-', '/'))
         rows.append(
-            '<a class="row" href="%s-%s.html"><div class="m">%s</div>'
+            '<a class="row%s" href="%s%s.html"><div class="m">%s</div>'
             '<div class="light %s">%s %s</div>'
             '<div class="n">%s 鍋　環比 %s　同比 %s</div>'
-            '<div class="a">警示 %d ｜ 斷單 %d</div></a>' % (
-                R['month'][:4], R['month'][5:7], esc(R['month']),
+            '<div class="a">%s</div></a>' % (
+                ' preview' if is_pv else '', stem, '-preview' if is_pv else '', month_txt,
                 R['light'], LIGHT_ICON.get(R['light'], ''), esc(R['light_label']),
-                fmt(t['pots']), pct_span(t['mom_pct']), pct_span(t['yoy_pct']),
-                R['real_alert_count'], len(R['dormant'])))
+                fmt(t['pots']), pct_span(t['mom_pct']), pct_span(t['yoy_pct']), alert_txt))
     body = '\n'.join(rows) if rows else '<p class="muted">尚未產生任何月報。</p>'
     html_out = """<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>生產鍋數月報 · 索引</title>
@@ -993,6 +1547,8 @@ h1{font-size:22px;margin:0 0 4px;} .sub{font-size:12.5px;color:#64748b;margin-bo
  background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:14px 17px;margin-bottom:10px;
  text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(15,23,42,.05);}
 .row:hover{border-color:#1d4ed8;}
+.row.preview{border:2px dashed #fb923c;background:#fffaf5;}
+.pv{font-size:10.5px;font-weight:600;color:#c2410c;font-family:'Noto Sans TC',sans-serif;line-height:1.35;margin-top:3px;}
 .m{font-family:ui-monospace,monospace;font-weight:700;font-size:15px;}
 .light{font-size:11.5px;padding:3px 9px;border-radius:20px;text-align:center;white-space:nowrap;}
 .light.red{background:#fee2e2;color:#991b1b;}.light.yellow{background:#fef3c7;color:#92400e;}.light.green{background:#dcfce7;color:#166534;}
@@ -1005,7 +1561,7 @@ a.back{display:inline-block;margin-bottom:18px;font-size:12.5px;color:#1d4ed8;te
 </style></head><body><div class="wrap">
 <a class="back" href="../">← 回到儀表板</a>
 <h1>生產鍋數月報</h1>
-<div class="sub">依業務量（鍋數／重量）分析接單趨勢與衰退警示。點擊月份查看完整報告。</div>
+<div class="sub">依業務量（鍋數／重量）分析接單趨勢與衰退警示。點擊月份查看完整報告。橘色虛線框為「期中預覽」（本月尚未結束，與上月／去年同期比較）。</div>
 __ROWS__
 </div></body></html>"""
     return html_out.replace('__ROWS__', body)
@@ -1017,6 +1573,9 @@ def main():
     ap.add_argument('--narrative', help='總評文字檔（純文字／段落以空行分隔，支援 **粗體**）')
     ap.add_argument('--xlsx', default=XLSX, help='資料來源 xlsx（預設 data/latest.xlsx）')
     ap.add_argument('--allow-incomplete', action='store_true', help='即使該月未補齊仍產生報告')
+    ap.add_argument('--preview', action='store_true',
+                    help='期中預覽：本月尚未結束，改與上月／去年「同期」比較，輸出 YYYY-MM-preview.html')
+    ap.add_argument('--asof', help='期中預覽的資料截止日 YYYY-MM-DD（預設為資料中該月最後一天）')
     args = ap.parse_args()
 
     m = re.match(r'^(\d{4})-(\d{1,2})$', args.month.strip())
@@ -1032,18 +1591,49 @@ def main():
     if not os.path.exists(args.xlsx):
         raise SystemExit('找不到資料檔 %s' % args.xlsx)
     rows = read_sheet(args.xlsx, SHEET)
-    pots, kg, meta, month_counts = aggregate(rows)
+    recs, meta, month_counts, _last = aggregate(rows)
 
     if (Y, M) not in month_counts:
         have = sorted(month_counts)
         raise SystemExit('資料中沒有 %s 的紀錄。目前資料涵蓋 %s ~ %s。' % (
             mlabel(Y, M), mlabel(*have[0]), mlabel(*have[-1])))
 
-    R = compute(pots, kg, meta, month_counts, Y, M, cfg)
-    if R['incomplete'] and not args.allow_incomplete:
+    preview = None
+    if args.preview:
+        days = [d for (_k, ym, d, _p, _kg) in recs if ym == (Y, M)]
+        if not days:
+            raise SystemExit('%s 目前沒有有效的生產紀錄，無法產生預覽。' % mlabel(Y, M))
+        D = max(days)
+        if args.asof:
+            a = parse_ymd(args.asof)
+            if not a or (a[0], a[1]) != (Y, M):
+                raise SystemExit('--asof 必須是 %s 內的日期，例如 %d-%02d-20' % (mlabel(Y, M), Y, M))
+            D = a[2]
+        # 截止日之後的紀錄一律不看，確保預覽內容與「當天看到的資料」一致
+        recs = [r for r in recs if r[1] < (Y, M) or (r[1] == (Y, M) and r[2] <= D)]
+        dim = calendar.monthrange(Y, M)[1]
+        py_, pm_ = month_add(Y, M, -1)
+        prev_dim = calendar.monthrange(py_, pm_)[1]
+        full_month = D >= dim
+        preview = {
+            'asof': '%d-%02d-%02d' % (Y, M, D), 'day': D, 'days_in_month': dim,
+            'factor': round(dim / D, 4), 'full_month': full_month,
+            'cur_period': '%d/1–%d/%d' % (M, M, D),
+            'prev_period': '%d/1–%d/%d' % (pm_, pm_, prev_dim if full_month else min(D, prev_dim)),
+            'yoy_period': '%d/%d/1–%d/%d' % (Y - 1, M, M, dim if full_month else D),
+        }
+        full = roll(recs)
+        cmp = full if full_month else roll(recs, D)
+    else:
+        full = roll(recs)
+        cmp = full
+
+    R = compute(full, cmp, meta, month_counts, Y, M, cfg, preview)
+    if R['incomplete'] and not args.allow_incomplete and not preview:
         raise SystemExit(
             '%s 的資料可能尚未補齊（僅 %d 筆，約為其他月份中位數 %d 的 %d%%）。\n'
-            '請確認資料完整後再產生；若確定要產出，加上 --allow-incomplete。' % (
+            '請確認資料完整後再產生；若是月底開會前要先看，請改用 --preview 產生期中預覽；\n'
+            '若確定要產出正式版，加上 --allow-incomplete。' % (
                 R['month'], R['record_count'], R['median_count'],
                 round(R['record_count'] / R['median_count'] * 100) if R['median_count'] else 0))
 
@@ -1053,7 +1643,7 @@ def main():
             narrative = f.read()
 
     os.makedirs(REPORTS, exist_ok=True)
-    stem = '%04d-%02d' % (Y, M)
+    stem = '%04d-%02d' % (Y, M) + ('-preview' if preview else '')
     with open(os.path.join(REPORTS, stem + '.json'), 'w', encoding='utf-8') as f:
         json.dump(R, f, ensure_ascii=False, indent=1)
     with open(os.path.join(REPORTS, stem + '.html'), 'w', encoding='utf-8') as f:
@@ -1062,11 +1652,16 @@ def main():
         f.write(build_index())
 
     t = R['totals']
+    gc = R['grade_counts']
     print('✓ 已產生 reports/%s.html' % stem)
+    if preview:
+        print('  期中預覽：資料截至 %s（與上月 %s、去年 %s 同期比較）' % (
+            preview['asof'], preview['prev_period'], preview['yoy_period']))
     print('  總鍋數 %s（環比 %s／同比 %s）｜ 重量 %s kg ｜ 品項 %d' % (
         fmt(t['pots']), pct_txt(t['mom_pct']), pct_txt(t['yoy_pct']), fmt(t['kg']), t['items']))
-    print('  燈號 %s %s ｜ 警示 %d 項 ｜ 斷單 %d 項' % (
-        LIGHT_ICON.get(R['light'], ''), R['light_label'], R['real_alert_count'], len(R['dormant'])))
+    print('  燈號 %s %s ｜ 警示 A %d／B %d／C %d ｜ %s %d 項 ｜ 資料異常 %d 項' % (
+        LIGHT_ICON.get(R['light'], ''), R['light_label'], gc['A'], gc['B'], gc['C'],
+        '尚未生產' if preview else '斷單', len(R['dormant']), len(R['anomalies'])))
 
 
 if __name__ == '__main__':

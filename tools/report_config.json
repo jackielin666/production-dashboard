@@ -7,6 +7,19 @@
   "kg_flat_pct": 3,
   "trend_months": 24,
 
+  "b_grade_pct": 1,
+  "red_core_loss_pct": 15,
+  "red_core_dormant_months": 1,
+  "dormant_lost_months": 3,
+  "anomaly_min_pots": 5,
+  "anomaly_dev_pct": 50,
+  "anomaly_min_history": 3,
+  "anomaly_new_low_pct": 20,
+  "anomaly_new_high_pct": 300,
+  "anomaly_kg_coverage_pct": 50,
+  "waterfall_items": 5,
+  "_grading_help": "警示分級：A=主力品項（不設門檻）；B=非主力且流失鍋數 ≥ 本業總鍋數×b_grade_pct%；C=其餘（收合）。燈號紅燈：本業同比 ≤ −decline_pct%、主力品項連續 ≥ red_core_dormant_months 月斷單，或主力品項流失合計 ≥ 本業總鍋數×red_core_loss_pct%（15% 為 2025/01~2026/08 回測後的建議值；5% 會讓 20 個月中 19 個月亮紅燈）。斷單連續 ≥ dormant_lost_months 月列為疑似流失。資料異常：本月鍋數 ≥ anomaly_min_pots 且重量為 0，或每鍋重量偏離前 12 個月中位數 ±anomaly_dev_pct%（需 ≥ anomaly_min_history 個月歷史；歷史不足者改與全廠平均每鍋重量比較，低於 anomaly_new_low_pct% 或高於 anomaly_new_high_pct% 即列出）。本月有重量的鍋數占比 < anomaly_kg_coverage_pct% 時視為重量尚未填入，暫不檢查。",
+
   "_item_overrides_help": "以料號為 key 標註特殊品項。status: discontinued=已下市（完全排除警示與燈號）; seasonal_oem=季節性代工（不列主力、不觸發燈號、另計排除後總量）。新增品項只要加一行。",
   "item_overrides": {
     "C1020": { "status": "discontinued", "label": "已下市",
