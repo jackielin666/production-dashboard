@@ -631,6 +631,52 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     anomalies.sort(key=lambda x: -x['pots'])
     anomaly_keys = {x['key'] for x in anomalies}
 
+    # ── 主力品項 3 個月移動平均（只用完整月份的實際值；預覽時截至上月）──
+    # 單一品項月產量受排程影響波動大，以 3 個月平均對比「去年同期 3 個月平均」判斷趨勢，
+    # 同時消除季節性。僅供參考，不影響警示分級與燈號。
+    ma_n = int(cfg.get('ma_months', 3))
+    ma_pct = float(cfg.get('ma_trend_pct', 10))
+    ma_end = prev if preview and not preview.get('full_month') else cur
+
+    def ma_of(ks, end):
+        return sum(Pf(k, month_add(end[0], end[1], -i)) for k in ks for i in range(ma_n)) / ma_n
+
+    def ma_row(ks, label, code, core):
+        now = ma_of(ks, ma_end)
+        before = ma_of(ks, month_add(ma_end[0], ma_end[1], -ma_n))
+        ly = ma_of(ks, (ma_end[0] - 1, ma_end[1]))
+        yoy_v, seq_v = pct(now, ly), pct(now, before)
+        if yoy_v is None:
+            verdict, cls = '去年同期無資料', 'grey'
+        elif yoy_v <= -ma_pct:
+            verdict, cls = '趨勢下滑', 'bad'
+        elif yoy_v >= ma_pct:
+            verdict, cls = '趨勢成長', 'ok'
+        else:
+            verdict, cls = '趨勢持平', 'mid'
+        months = [month_add(ma_end[0], ma_end[1], -i) for i in range(11, -1, -1)]
+        return {
+            '品項': label, '料號': code, 'core': core,
+            'ma': round(now), 'ma_before': round(before), 'ma_ly': round(ly),
+            'seq_pct': r1(seq_v), 'yoy_pct': r1(yoy_v), 'verdict': verdict, 'cls': cls,
+            'labels': [mlabel(*ym) for ym in months],
+            'monthly': [round(sum(Pf(k, ym) for k in ks)) for ym in months],
+            'series': [round(ma_of(ks, ym)) for ym in months],
+        }
+
+    ma_rows = [ma_row(core_biz, '本業合計（排除季節性代工）', '', False)]
+    ma_rows += [ma_row([k], meta[k]['品項'], meta[k]['料號'], True) for k in core_ranked]
+
+    def win_label(end):
+        st = month_add(end[0], end[1], -(ma_n - 1))
+        return '%s–%s' % (mlabel(*st), mlabel(*end))
+    ma_block = {
+        'rows': ma_rows, 'n': ma_n, 'end': mlabel(*ma_end),
+        'window': win_label(ma_end),
+        'window_before': win_label(month_add(ma_end[0], ma_end[1], -ma_n)),
+        'window_ly': win_label((ma_end[0] - 1, ma_end[1])),
+    }
+
     # ── 綜合燈號 ──
     reasons = []
     if judge_yoy is not None and judge_yoy <= -dec:
@@ -776,6 +822,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
         'categories': cats, 'same_month': same_month,
         'typical_mom': typical_mom, 'seasonal_note': seasonal_note, 'seasonal_sample': seasonal_sample,
         'trend': trend, 'waterfall': waterfall, 'anomalies': anomalies, 'tracking': tracking,
+        'ma': ma_block,
         'kg_coverage': round(kg_cov, 1), 'kg_pending': kg_pending, 'nokg_pots': round(nokg_pots),
         'factory_kg_per_pot': None if factory_kpp is None else round(factory_kpp, 1),
         'light': light, 'light_label': light_label, 'light_reasons': reasons,
@@ -921,6 +968,28 @@ def tracking_rows(R):
         for i in items)
 
 
+MA_BADGE = {'ok': 't-green', 'mid': 't-grey', 'bad': 't-red', 'grey': 't-grey'}
+
+
+def ma_rows_html(R):
+    mb = R.get('ma')
+    if not mb:
+        return ''
+    out = []
+    for i, r in enumerate(mb['rows']):
+        name = ('<strong>%s</strong>' % esc(r['品項'])) if not r['料號'] else \
+            '%s<div class="sub">%s</div>' % (esc(r['品項']), esc(r['料號']))
+        out.append(
+            '<tr%s><td>%s</td><td class="spark"><canvas id="ma%d" width="170" height="44"></canvas></td>'
+            '<td class="num"><strong>%s</strong></td><td class="num">%s</td><td class="num">%s</td>'
+            '<td class="num">%s</td><td class="num">%s</td><td><span class="tag %s">%s</span></td></tr>' % (
+                ' class="total"' if not r['料號'] else '', name, i,
+                fmt(r['ma']), fmt(r['ma_before']), pct_span(r['seq_pct']),
+                fmt(r['ma_ly']), pct_span(r['yoy_pct']),
+                MA_BADGE.get(r['cls'], 't-grey'), esc(r['verdict'])))
+    return '\n'.join(out)
+
+
 def core_rows(R):
     return '\n'.join(
         '<tr><td class="num">%d</td><td>%s<div class="sub">%s</div></td><td class="num">%s</td>'
@@ -1003,6 +1072,8 @@ tr.g-A{background:#fff7f7;}
 .gl-grid ul{margin:4px 0 8px;padding-left:22px;}
 table.gl td{border-bottom:1px solid var(--border);padding:8px 8px;vertical-align:top;}
 table.gl td:first-child{width:70px;}
+table.ma td{vertical-align:middle;} td.spark{padding:4px 8px;width:186px;}
+tr.total{background:#f8fafc;}
 details.more{margin-top:12px;} details.more summary{cursor:pointer;font-size:14.5px;color:var(--blue);padding:6px 0;}
 .hero{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
 .hero .big{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;}
@@ -1152,6 +1223,18 @@ __WARN__
     <tbody>__ALERT_ROWS__</tbody>
   </table></div>
   __C_DETAILS__
+</div>
+
+<div class="card">
+  <h2>主力品項 3 個月趨勢（移動平均）</h2>
+  <div class="csub">單月產量受排程影響波動大，改看<strong>近 3 個月平均月鍋數</strong>（__MA_WIN__）判斷趨勢：
+    與去年同期 3 個月（__MA_WIN_LY__）相比 ≤ −__MA_PCT__% 為「趨勢下滑」、≥ +__MA_PCT__% 為「趨勢成長」，可同時排除季節性。__MA_NOTE__
+    小圖：灰色長條為各月鍋數、藍線為 3 個月移動平均（近 12 個月）。僅供參考，不影響警示分級與燈號。</div>
+  <div class="tbl-wrap"><table class="ma">
+    <thead><tr><th>品項</th><th>近 12 個月走勢</th><th class="num">近 3 月<br>月均</th><th class="num">前 3 月<br>月均</th>
+      <th class="num">較前 3 月</th><th class="num">去年同期<br>月均</th><th class="num">較去年同期</th><th>趨勢判讀</th></tr></thead>
+    <tbody>__MA_ROWS__</tbody>
+  </table></div>
 </div>
 
 <div class="card">
@@ -1351,6 +1434,21 @@ new Chart(document.getElementById('paretoChart'), {
       y:{grid:grid, ticks:tick, beginAtZero:true, title:{display:true, text:'累計鍋數', color:'#64748b', font:{size:13}}}}})});
 })();
 
+// 10. 主力品項 3 個月移動平均小圖（灰長條＝月鍋數，藍線＝移動平均）
+(R.ma ? R.ma.rows : []).forEach((r, i) => {
+  const el = document.getElementById('ma' + i);
+  if (!el) return;
+  new Chart(el, {
+    data:{labels:r.labels, datasets:[
+      {type:'line', label:'3 個月平均', data:r.series, borderColor:C.blue, borderWidth:2, pointRadius:0, tension:.3},
+      {type:'bar', label:'月鍋數', data:r.monthly, backgroundColor:C.grey+'66', borderRadius:2}
+    ]},
+    options:{responsive:false, animation:false, plugins:{legend:{display:false},
+      tooltip:{mode:'index', intersect:false, titleFont:{size:12}, bodyFont:{size:12}}},
+      scales:{x:{display:false}, y:{display:false, beginAtZero:true}}}
+  });
+});
+
 // 7. 類別
 const cats = Object.keys(R.categories);
 new Chart(document.getElementById('catChart'), {
@@ -1540,6 +1638,10 @@ def build_html(R, narrative):
         '__TRACK_SAME_TH__': '<th class="num">上月同期</th>' if pv else '',
         '__CORE_ROWS__': core_rows(R), '__CORE_WINDOW__': esc(R.get('core_window') or ''),
         '__CORE_N__': str(len(R.get('core_items') or [])),
+        '__MA_ROWS__': ma_rows_html(R),
+        '__MA_WIN__': esc(R['ma']['window']), '__MA_WIN_LY__': esc(R['ma']['window_ly']),
+        '__MA_PCT__': '%g' % float(cfg.get('ma_trend_pct', 10)),
+        '__MA_NOTE__': ('本月尚未結束，只計算到上個完整月份（%s）。' % esc(R['ma']['end'])) if pv and not pv['full_month'] else '',
         '__TRACK_ROWS__': tracking_rows(R),
         '__WF_SUB__': wf_sub,
         '__YTD_POTS__': fmt(yb['pots']), '__YTD_PCT__': pct_span(yb['pct']),
