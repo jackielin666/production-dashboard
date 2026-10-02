@@ -20,6 +20,10 @@
   "anomaly_kg_coverage_pct": 50,
   "waterfall_items": 5,
   "preview_gap_days": 5,
+  "_planned_shutdowns_help": "已知的計畫性停產（員工旅遊、年度保養等）。期中預覽遇到這段期間的無生產紀錄，會標示為計畫性停產，而不是提醒資料漏登。只影響說明文字，不改變燈號與數字。",
+  "planned_shutdowns": [
+    { "start": "2026-09-07", "end": "2026-09-11", "reason": "員工旅遊" }
+  ],
   "ma_months": 3,
   "ma_trend_pct": 10,
   "_grading_help": "警示分級：A=主力品項（不設門檻）；B=非主力且流失鍋數 ≥ 本業總鍋數×b_grade_pct%；C=其餘（收合）。燈號紅燈：本業同比 ≤ −decline_pct%、主力品項連續 ≥ red_core_dormant_months 月斷單，或主力品項流失合計 ≥ 本業總鍋數×red_core_loss_pct%（15% ＋ 連續斷單 ≥2 月為 2025/01~2026/08 回測後採用的設定：20 個月中 10 個月紅燈；5% 會讓 19 個月亮紅燈）。斷單連續 ≥ dormant_lost_months 月列為疑似流失。資料異常：本月鍋數 ≥ anomaly_min_pots 且重量為 0，或每鍋重量偏離前 12 個月中位數 ±anomaly_dev_pct%（需 ≥ anomaly_min_history 個月歷史；歷史不足者改與全廠平均每鍋重量比較，低於 anomaly_new_low_pct% 或高於 anomaly_new_high_pct% 即列出）。本月有重量的鍋數占比 < anomaly_kg_coverage_pct% 時視為重量尚未填入，暫不檢查。",

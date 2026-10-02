@@ -39,6 +39,7 @@ PLACEHOLDER_CODES = {'-', '專案', '研發', ''}
 
 # 欄位索引（0-based）
 C_DATE, C_CODE, C_NAME, C_POTS, C_SPEC, C_KG, C_DELETED = 0, 1, 2, 3, 4, 8, 20
+C_SEMI, C_FG = 7, 15   # 半成品數(實際)、成品數(實際)：完整性檢查用（空白＝生管尚未填寫；0 為有效值）
 
 
 # ────────────────────────── xlsx 讀取（純標準函式庫） ──────────────────────────
@@ -199,6 +200,27 @@ def aggregate(rows):
             last_date = ymd
         recs.append((key, ym, d, to_num(r.get(C_POTS)), to_num(r.get(C_KG))))
     return recs, meta, month_counts, last_date
+
+
+def blank_rows(rows, Y, M, cap_day=None):
+    """本月有鍋數、但「半成品數(實際)」或「成品數(實際)」為空白的紀錄（生管尚未填寫）。
+    填 0 視為已填（例如重工、不出貨）；回傳 [(日, 料號, 品項, 缺漏欄位)]。"""
+    blank = lambda v: v is None or str(v).strip() == ''
+    out = []
+    for r in rows[1:]:
+        ymd = parse_ymd(r.get(C_DATE))
+        if not ymd or (ymd[0], ymd[1]) != (Y, M) or (cap_day and ymd[2] > cap_day):
+            continue
+        name = r.get(C_NAME)
+        if name is None or str(name).strip() in ('#N/A', '') or r.get(C_DELETED):
+            continue
+        p = to_num(r.get(C_POTS))
+        if not p or p <= 0:
+            continue
+        miss = [lbl for c, lbl in ((C_SEMI, '半成品數'), (C_FG, '成品數')) if blank(r.get(c))]
+        if miss:
+            out.append((ymd[2], str(r.get(C_CODE) or ''), str(name), '／'.join(miss)))
+    return out
 
 
 def roll(recs, cap_day=None):
@@ -580,7 +602,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
     waterfall = {'start': round(tot_pots_prev), 'end': round(tot_pots), 'steps': steps,
                  'dec_total': round(sum(d for _k, d in neg)), 'inc_total': round(sum(d for _k, d in pos))}
 
-    # ── 資料異常：鍋數與重量不匹配（只點出，原因請製造單位說明）──
+    # ── 資料異常：鍋數與重量不匹配（只點出，原因請生管單位說明）──
     # 重量常於事後補登：本月有重量的鍋數占比 < anomaly_kg_coverage_pct 時視為「重量尚未填入」，暫不檢查。
     an_min = float(cfg.get('anomaly_min_pots', 5))
     an_pct = float(cfg.get('anomaly_dev_pct', 50))
@@ -1277,8 +1299,8 @@ __WARN__
 </div>
 
 <div class="card">
-  <h2>資料異常 — 請製造單位說明</h2>
-  <div class="csub">條件：本月鍋數 ≥ __AN_MIN__ 且 (1)「有鍋數但重量為 0」；(2) 每鍋重量偏離該品項前 12 個月中位數 ±__AN_PCT__% 以上；或 (3) 歷史不足 __AN_HIST__ 個月的品項，每鍋重量低於全廠平均的 __AN_LOW__% 或高於 __AN_HIGH__%。本報告不推測原因，請製造單位說明。</div>
+  <h2>資料異常 — 請生管單位說明</h2>
+  <div class="csub">條件：本月鍋數 ≥ __AN_MIN__ 且 (1)「有鍋數但重量為 0」；(2) 每鍋重量偏離該品項前 12 個月中位數 ±__AN_PCT__% 以上；或 (3) 歷史不足 __AN_HIST__ 個月的品項，每鍋重量低於全廠平均的 __AN_LOW__% 或高於 __AN_HIGH__%。本報告不推測原因，請生管單位說明。</div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>品項</th><th class="num">本月鍋數</th><th class="num">本月重量 kg</th><th class="num">每鍋 kg</th>
       <th class="num">比較基準 kg</th><th class="num">偏離</th><th>異常類型</th></tr></thead>
@@ -1505,12 +1527,14 @@ def build_html(R, narrative):
     gc = R['grade_counts']
     warn = ''
     if pv:
-        warn = ('<div class="note preview">⏳ <strong>期中預覽 — 本月尚未結束，非正式月報</strong>：'
+        warn = ('<div class="note preview">⏳ <strong>期中預覽 — %s，非正式月報</strong>：'
                 '資料截至 <strong>%s</strong>（第 %d 天／共 %d 天）。所有比較皆採「同期」口徑'
                 '（本月 %s 對比上月 %s、去年 %s），數字皆為實際值、不做推估。'
-                '斷單與燈號皆為暫定，正式結論以下月初的正式月報為準。%s</div>' % (
+                '斷單與燈號皆為暫定，%s。%s</div>' % (
+                    '本月資料尚未補齊' if pv.get('full_month') else '本月尚未結束',
                     pv['asof'], pv['day'], pv['days_in_month'], pv['cur_period'],
                     pv['prev_period'], pv['yoy_period'],
+                    '待生管補齊資料、無空缺後產生正式月報' if pv.get('full_month') else '正式結論以下月初的正式月報為準',
                     ('<br>⚠️ 目前僅 %d 天資料，單日排程差異就會讓比較大幅波動，判讀請保守。' % pv['day']
                      if pv['day'] < 10 else '')
                     + ('<br>⚖️ 本月重量尚未填入（有重量的鍋數僅占 %s%%），重量相關數字暫不具參考性。' % R['kg_coverage']
@@ -1518,8 +1542,15 @@ def build_html(R, narrative):
                        '<br>⚖️ 尚有 %s 鍋未填重量（%s），重量數字偏低、暫不比較；這些批次不列入資料異常。' % (
                            fmt(R['nokg_pots']), esc(pv.get('nokg_days') or ''))
                        if R.get('nokg_pots') else '')
-                    + ''.join('<br>📭 <strong>%s 連續 %d 天沒有任何生產紀錄</strong>（過去一年正常月份最長 4 天），'
-                              '請確認是停產還是資料尚未登錄——若為漏登，本預覽的同期比較會偏低。' % (g['range'], g['days'])
+                    + ('<br>📝 <strong>資料尚有空缺：%d 筆有鍋數，但半成品數（實際）%d 筆、成品數（實際）%d 筆未填</strong>'
+                       '（%s），請生管補齊；補齊後才產生正式月報。' % (
+                           pv['blank']['rows'], pv['blank']['semi'], pv['blank']['fg'], pv['blank']['days'])
+                       if pv.get('blank') else '')
+                    + ''.join(('<br>🏖️ %s 連續 %d 天沒有生產紀錄：<strong>計畫性停產（%s）</strong>，'
+                               '同期比較會因生產天數較少而偏低。' % (g['range'], g['days'], esc(g['planned'])))
+                              if g.get('planned') else
+                              ('<br>📭 <strong>%s 連續 %d 天沒有任何生產紀錄</strong>（過去一年正常月份最長 4 天），'
+                               '請確認是停產還是資料尚未登錄——若為漏登，本預覽的同期比較會偏低。' % (g['range'], g['days']))
                               for g in pv.get('gaps') or [])))
     elif R.get('kg_pending'):
         warn = ('<div class="note warn">⚖️ <strong>本月重量資料尚未填入</strong>：有重量的鍋數僅占 %s%%，'
@@ -1823,9 +1854,24 @@ def main():
                 run += 1
                 continue
             if run >= gap_min:
-                gaps.append({'range': '%d/%d–%d/%d' % (M, d - run, M, d - 1), 'days': run})
+                g = {'range': '%d/%d–%d/%d' % (M, d - run, M, d - 1), 'days': run}
+                # 已知的計畫性停產（report_config.json 的 planned_shutdowns）不當成資料漏登
+                g0, g1 = date(Y, M, d - run), date(Y, M, d - 1)
+                for s in cfg.get('planned_shutdowns') or []:
+                    s0, s1 = parse_ymd(s.get('start')), parse_ymd(s.get('end'))
+                    if s0 and s1 and date(*s0) <= g1 and date(*s1) >= g0:
+                        g['planned'] = s.get('reason') or '計畫性停產'
+                gaps.append(g)
             run = 0
         preview['gaps'] = gaps
+        br = blank_rows(rows, Y, M, D)
+        if br:
+            preview['blank'] = {
+                'rows': len(br),
+                'semi': sum('半成品數' in b[3] for b in br),
+                'fg': sum('成品數' in b[3].replace('半成品數', '') for b in br),
+                'days': '、'.join('%d/%d' % (M, d) for d in sorted({b[0] for b in br})),
+            }
         nk_days = sorted({d for (_k, ym, d, p, kv) in recs if ym == (Y, M) and p and p > 0 and not kv})
         if nk_days:
             shown = nk_days if len(nk_days) <= 8 else nk_days[-8:]
@@ -1846,6 +1892,18 @@ def main():
             '若確定要產出正式版，加上 --allow-incomplete。' % (
                 R['month'], R['record_count'], R['median_count'],
                 round(R['record_count'] / R['median_count'] * 100) if R['median_count'] else 0))
+    # 正式月報必須資料無空缺：生管尚未填完「半成品數(實際)」或「成品數(實際)」時只能出期中預覽
+    if not preview and not args.allow_incomplete:
+        br = blank_rows(rows, Y, M)
+        if br:
+            days = sorted({b[0] for b in br})
+            raise SystemExit(
+                '%s 的資料尚有空缺：%d 筆有鍋數，但半成品數（實際）%d 筆、成品數（實際）%d 筆未填，分布在 %s。\n'
+                '正式月報需資料無空缺，請生管補齊後再產生；目前請改用 --preview 產生期中預覽。\n'
+                '若確定要產出正式版，加上 --allow-incomplete。' % (
+                    mlabel(Y, M), len(br),
+                    sum('半成品數' in b[3] for b in br), sum('成品數' in b[3].replace('半成品數', '') for b in br),
+                    '、'.join('%d/%d' % (M, d) for d in days)))
 
     narrative = None
     if args.narrative:
