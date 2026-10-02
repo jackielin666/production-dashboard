@@ -202,7 +202,7 @@ def aggregate(rows):
     return recs, meta, month_counts, last_date
 
 
-def blank_rows(rows, Y, M, cap_day=None):
+def blank_rows(rows, Y, M, cap_day=None, skip_codes=()):
     """本月有鍋數、但「半成品數(實際)」或「成品數(實際)」為空白的紀錄（生管尚未填寫）。
     填 0 視為已填（例如重工、不出貨）；回傳 [(日, 料號, 品項, 缺漏欄位)]。"""
     blank = lambda v: v is None or str(v).strip() == ''
@@ -215,7 +215,7 @@ def blank_rows(rows, Y, M, cap_day=None):
         if name is None or str(name).strip() in ('#N/A', '') or r.get(C_DELETED):
             continue
         p = to_num(r.get(C_POTS))
-        if not p or p <= 0:
+        if not p or p <= 0 or str(r.get(C_CODE) or '').strip() in skip_codes:
             continue
         miss = [lbl for c, lbl in ((C_SEMI, '半成品數'), (C_FG, '成品數')) if blank(r.get(c))]
         if miss:
@@ -480,6 +480,12 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
                          'share': round(v / tot_pots * 100, 1) if tot_pots else 0,
                          'cum_share': round(cum / tot_pots * 100, 1) if tot_pots else 0})
     top_share = round(cum / tot_pots * 100, 1) if tot_pots else 0
+    # 附錄：本月有生產的全部品項（含小量品項，避免「有生產卻在報告找不到」）
+    all_items = [{'品項': meta[k]['品項'], '料號': meta[k]['料號'], '類別': meta[k]['類別'],
+                  'pots': r1(P(k, cur)), 'prev': r1(P(k, prev)), 'yoy': r1(P(k, yoy)),
+                  'kg': round(K(k, cur)), 'mom_pct': r1(pct(P(k, cur), P(k, prev))),
+                  'tag': (ov.get(k) or {}).get('label')}
+                 for k in sorted(active_items, key=lambda k: (-P(k, cur), meta[k]['料號']))]
 
     # ── 類別 ──
     cats = {}
@@ -700,7 +706,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
             'series': [round(ma_of(ks, ym)) for ym in months],
         }
 
-    ma_rows = [ma_row(core_biz, '本業合計（排除季節性代工）', '', False)]
+    ma_rows = [ma_row(core_biz, '本業合計（排除季節性代工）' if has_oem else '本業合計', '', False)]
     ma_rows += [ma_row([k], meta[k]['品項'], meta[k]['料號'], True) for k in core_ranked]
 
     def win_label(end):
@@ -864,7 +870,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
                        for k in core_ranked],
         'core_window': '%s–%s' % (mlabel(*base_window[-1]), mlabel(*base_window[0])),
         'newbies': newbies, 'returning': returning,
-        'top_items': top_list, 'top_share': top_share,
+        'top_items': top_list, 'top_share': top_share, 'all_items': all_items,
         'categories': cats, 'same_month': same_month,
         'typical_mom': typical_mom, 'seasonal_note': seasonal_note, 'seasonal_sample': seasonal_sample,
         'trend': trend, 'waterfall': waterfall, 'anomalies': anomalies, 'tracking': tracking,
@@ -1073,6 +1079,17 @@ def newret_rows(R):
     return '\n'.join(rows) if rows else '<tr><td colspan="3" class="empty">本月無新品或回流品項</td></tr>'
 
 
+def all_rows(R):
+    num = lambda v: fmt(v) if v == int(v) else ('%.1f' % v)
+    return '\n'.join(
+        '<tr><td>%s%s<div class="sub">%s</div></td><td>%s</td><td class="num">%s</td><td class="num">%s</td>'
+        '<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td></tr>' % (
+            ('<span class="tag t-note">%s</span> ' % esc(t['tag'])) if t.get('tag') else '',
+            esc(t['品項']), esc(t['料號']), esc(t['類別']), num(t['pots']), num(t['prev']), num(t['yoy']),
+            pct_span(t['mom_pct']), fmt(t['kg']) if t['kg'] else '—')
+        for t in R.get('all_items') or [])
+
+
 def top_rows(R):
     return '\n'.join(
         '<tr><td>%s<div class="sub">%s</div></td><td class="num">%s</td>'
@@ -1237,7 +1254,7 @@ __WARN__
         <tr><td><span class="tag t-red">A 主力</span></td><td>觸發警示的品項屬於<strong>主力品項</strong>（右表）。不設門檻，一律列出。</td></tr>
         <tr><td><span class="tag t-amber">B</span></td><td>非主力品項，流失 ≥ <strong>__BTHR__ 鍋</strong>（本業總鍋數的 __BPCT__%，會隨淡旺季自動調整）。</td></tr>
         <tr><td><span class="tag t-grey">C</span></td><td>非主力、流失 &lt; __BTHR__ 鍋。影響小，預設收合。</td></tr>
-        <tr><td><span class="tag t-note">註</span></td><td>季節性代工品項（化應子）。量大且間歇，另列、不分級、不影響燈號。</td></tr>
+        <tr><td><span class="tag t-note">註</span></td><td>特殊品項（見頁尾「品項註記」）：季節性代工另列、不分級、不影響燈號；標「不納入分析」者所有數據皆已排除。</td></tr>
       </table>
       <h3>__DORMANT_TITLE__</h3>
       <p>__DORMANT_SUB__</p>
@@ -1248,7 +1265,7 @@ __WARN__
     </div>
     <div>
       <h3>主力品項（__CORE_N__ 項）</h3>
-      <p>依<strong>前 12 個月（__CORE_WINDOW__）累計鍋數</strong>排名前 __CORE_N__ 名，排除季節性代工與已下市品項。
+      <p>依<strong>前 12 個月（__CORE_WINDOW__）累計鍋數</strong>排名前 __CORE_N__ 名，排除季節性代工、已下市與不納入分析的品項。
          用前 12 個月而不用本月排名，才不會因為本月衰退就跌出主力名單。每月自動更新。</p>
       <div class="tbl-wrap"><table>
         <thead><tr><th class="num">#</th><th>品項</th><th class="num">12 個月鍋數</th><th class="num">占比</th><th class="num">__CUR_COL__</th></tr></thead>
@@ -1373,6 +1390,18 @@ __WARN__
     <thead><tr><th>品項</th><th class="num">鍋數</th><th class="num">佔比</th><th class="num">累積佔比</th></tr></thead>
     <tbody>__TOP_ROWS__</tbody>
   </table></div>
+</div>
+
+<div class="card glossary">
+  <details>
+  <summary><h2>附錄：本月全品項明細（__ALL_N__ 項）</h2><span class="muted">（點開查看；產生 PDF 時自動展開）</span></summary>
+  <div class="csub" style="margin-top:8px">本月有生產的全部品項，依鍋數由多到少排列，含上方圖表與清單未列出的小量品項。重量為半成品重量(kg)，「—」表示尚未填寫。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th>類別</th><th class="num">__CUR_COL__</th><th class="num">__PREV_COL__</th><th class="num">__YOY_COL__</th>
+      <th class="num">環比</th><th class="num">重量 kg</th></tr></thead>
+    <tbody>__ALL_ROWS__</tbody>
+  </table></div>
+  </details>
 </div>
 
 <footer>
@@ -1680,6 +1709,7 @@ def build_html(R, narrative):
     ann = ''
     if R.get('annotated'):
         STATUS_EFFECT = {'discontinued': '不列入警示與燈號',
+                         'excluded': '資料有誤，所有月份數據皆不納入分析（總量、YTD、趨勢、警示皆已排除）',
                          'seasonal_oem': '不列主力、不參與分級與燈號、YTD 另計'}
         parts = ['<strong>%s</strong> %s（%s）%s' % (
             esc(a['label']), esc(a['品項']), esc(a['料號']),
@@ -1825,6 +1855,7 @@ def build_html(R, narrative):
         '__DORMANT_ROWS__': dormant_rows(R), '__ANOMALY_ROWS__': anomaly_rows(R),
         '__GROWTH_ROWS__': growth_rows(R), '__NEWRET_ROWS__': newret_rows(R),
         '__TOP_ROWS__': top_rows(R),
+        '__ALL_ROWS__': all_rows(R), '__ALL_N__': str(len(R.get('all_items') or [])),
         '__DATA__': json.dumps(R, ensure_ascii=False).replace('</', '<\\/'),
     }
     out = TPL
@@ -1925,6 +1956,9 @@ def main():
         raise SystemExit('找不到資料檔 %s' % args.xlsx)
     rows = read_sheet(args.xlsx, SHEET)
     recs, meta, month_counts, _last = aggregate(rows)
+    # 不納入分析的品項（item_overrides 的 status=excluded，例如資料有誤的代工品）：所有月份的紀錄一律剔除
+    excluded = {c for c, o in (cfg.get('item_overrides') or {}).items() if o.get('status') == 'excluded'}
+    recs = [r for r in recs if meta[r[0]]['料號'] not in excluded]
 
     if (Y, M) not in month_counts:
         have = sorted(month_counts)
@@ -1974,7 +2008,7 @@ def main():
                 gaps.append(g)
             run = 0
         preview['gaps'] = gaps
-        br = blank_rows(rows, Y, M, D)
+        br = blank_rows(rows, Y, M, D, skip_codes=excluded)
         if br:
             preview['blank'] = {
                 'rows': len(br),
@@ -2004,7 +2038,7 @@ def main():
                 round(R['record_count'] / R['median_count'] * 100) if R['median_count'] else 0))
     # 正式月報必須資料無空缺：生管尚未填完「半成品數(實際)」或「成品數(實際)」時只能出期中預覽
     if not preview and not args.allow_incomplete:
-        br = blank_rows(rows, Y, M)
+        br = blank_rows(rows, Y, M, skip_codes=excluded)
         if br:
             days = sorted({b[0] for b in br})
             raise SystemExit(
