@@ -1317,6 +1317,9 @@ function initQualityTab(){
 // dashboard's embedded const D / const QD.
 (function(global){
   const PLACE = new Set(['-','專案','研發','']);
+  // 資料有誤、所有月份都不納入分析的品項（料號 → 品項）。
+  // 須與 tools/report_config.json 中 status 為 "excluded" 的品項一致，月報與儀表板數字才會相同。
+  const EXCLUDED = {'D0390':'化應子(1*2.5KG)'};
 
   function bround(x){ // Python round(): round-half-to-even
     const r = Math.round(x);
@@ -1386,6 +1389,7 @@ function initQualityTab(){
     const pots={}, wt={}, meta={}, monthset=new Set();
     const yrate={}, item_rate={}, item_name={};
     const abnormal=[];
+    const excludedHit={};
     let cy=0, cm=0; // latest (year,month) present
 
     const keyof=(code,name)=>{ const c=(code==null?'':String(code)).trim(); return PLACE.has(c)? c+'__'+String(name) : c; };
@@ -1400,6 +1404,8 @@ function initQualityTab(){
       if (name===null||name===undefined) continue;
       const ns=String(name).trim(); if (ns==='#N/A'||ns==='') continue;
       if (y*100+m > capYM) continue;   // skip an incomplete trailing month
+      const xc=(r[1]==null?'':String(r[1])).trim();
+      if (EXCLUDED[xc]) { excludedHit[xc]=EXCLUDED[xc]; continue; }   // 不納入分析的品項
       monthset.add(y*100+m);
       if (y>cy || (y===cy && m>cm)){ cy=y; cm=m; }
       const code=r[1];
@@ -1505,7 +1511,13 @@ function initQualityTab(){
     const items=keys.map(k=>({料號:meta[k].料號,品項:meta[k].品項,類別:meta[k].類別,_key:k}));
     const timeline=[]; { let y=2024,m=1; while(y<cy||(y===cy&&m<=cm)){ timeline.push({yr:y,mo:m,label:`${y}/${String(m).padStart(2,'0')}`}); m++; if(m>12){m=1;y++;} } }
 
-    const D={items, item_data, timeline, yoy, activity, activity_counts:acCount, lifecycle, heatmap, total_wt_2025, top20_jam:top20('果醬餡類'), top20_peanut:top20('花生類')};
+    // 全廠月總鍋數：以原始值加總後再四捨五入（與月報一致；品項值已各自四捨五入，直接加總會有 ±1 的誤差）
+    const month_pots={};
+    for(const k of keys){ const pk=pots[k]; if(!pk) continue;
+      for(const y of Object.keys(pk)) for(const m of Object.keys(pk[y])){ const lb=y+'/'+m; month_pots[lb]=(month_pots[lb]||0)+pk[y][m]; } }
+    for(const lb of Object.keys(month_pots)) month_pots[lb]=bround(month_pots[lb]);
+
+    const D={items, item_data, timeline, yoy, activity, activity_counts:acCount, lifecycle, heatmap, total_wt_2025, month_pots, top20_jam:top20('果醬餡類'), top20_peanut:top20('花生類')};
 
     // ---- QD ----
     const monthsArr=[...monthset].sort((a,b)=>a-b);
@@ -1523,7 +1535,8 @@ function initQualityTab(){
     const abn=abnormal.slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
     const QD={months:mlabels, monthly_avg, items:qitems, abnormal:abn};
 
-    return {D, QD, latest:{y:cy,m:cm}, dropped:dropped};
+    return {D, QD, latest:{y:cy,m:cm}, dropped:dropped,
+            excluded:Object.keys(excludedHit).map(c=>excludedHit[c]+'（'+c+'）')};
   }
 
   global.buildDashboardData = buildData;
@@ -1556,7 +1569,10 @@ function loadBytes(bytes, source){
     D=res.D; QD=res.QD; LY=res.latest.y; LM=res.latest.m;
     LATEST_LABEL=D.timeline[D.timeline.length-1].label;
     const dn=document.getElementById('dropNote');
-    if(res.dropped){ dn.textContent='ℹ️ 已自動忽略未補齊的 '+res.dropped.label+'（僅 '+res.dropped.count+' 筆，約為前月中位數 '+res.dropped.median+' 的 '+Math.round(res.dropped.count/res.dropped.median*100)+'%）；補齊後會自動納入。'; dn.style.display='block'; }
+    const notes=[];
+    if(res.dropped) notes.push('ℹ️ 已自動忽略未補齊的 '+res.dropped.label+'（僅 '+res.dropped.count+' 筆，約為前月中位數 '+res.dropped.median+' 的 '+Math.round(res.dropped.count/res.dropped.median*100)+'%）；補齊後會自動納入。');
+    if(res.excluded && res.excluded.length) notes.push('ℹ️ 已排除資料有誤的品項：'+res.excluded.join('、')+'，所有月份數據皆不納入（與月報一致）。');
+    if(notes.length){ dn.textContent=notes.join('　'); dn.style.display='block'; }
     else { dn.style.display='none'; }
     applyDynamicLabels(); setSource(source);
     document.body.classList.remove('no-data');
@@ -1602,6 +1618,7 @@ function renderKpi(){
     const a=getMo(it,LY,LM); if(a>0){potsThis+=a; itemsThis++;}
     potsPrev+=getMo(it,prevY,prevM);
   });
+  if(D.month_pots){ potsThis=D.month_pots[LY+'/'+LM]||0; potsPrev=D.month_pots[prevY+'/'+prevM]||0; }
   const rate=QD.monthly_avg[label], ratePrev=QD.monthly_avg[prevLabel];
   const abn=QD.abnormal.filter(a=>a.date.slice(0,7)===label).length;
   const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
