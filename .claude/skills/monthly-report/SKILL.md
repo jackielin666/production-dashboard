@@ -74,6 +74,7 @@ description: 產生「生產鍋數月報」——依 data/latest.xlsx 分析指�
    （依專案慣例：在指定開發分支提交，再 fast-forward 到 main 觸發 Pages 部署。）
    回覆使用者可分享連結：
    `https://jackielin666.github.io/production-dashboard/reports/YYYY-MM.html`
+   （月報需登入才能看：產生器已自動在每份報告與索引加上 `../auth.js`，不必另外處理。）
 
 ## 期中預覽（月底廠務會議用）
 
