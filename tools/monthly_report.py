@@ -1103,6 +1103,8 @@ TPL = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<script src="../auth.js"></script>
 <title>生產鍋數月報 __MONTH____TITLE_SUFFIX__</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -1902,7 +1904,10 @@ def build_index():
                 fmt(t['pots']), pct_span(t['mom_pct']), pct_span(t['yoy_pct']), alert_txt))
     body = '\n'.join(rows) if rows else '<p class="muted">尚未產生任何月報。</p>'
     html_out = """<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>生產鍋數月報 · 索引</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<script src="../auth.js"></script>
+<title>生產鍋數月報 · 索引</title>
 <style>
 body{margin:0;background:#f6f7f9;color:#0f172a;font-family:'Noto Sans TC',-apple-system,'Segoe UI',sans-serif;}
 .wrap{max-width:820px;margin:0 auto;padding:34px 20px 60px;}
