@@ -43,6 +43,8 @@ description: 產生「生產鍋數月報」——依 data/latest.xlsx 分析指�
    ```bash
    python3 tools/monthly_report.py --month YYYY-MM --narrative reports/YYYY-MM.narrative.txt
    ```
+   **格式用條列式**（Jackie 要求，較易閱讀）：每段以一行 `**粗體小標**` 開頭，下面每點一行 `- `
+   （子項目前面空兩格 `  - `），「建議追查方向／建議會中確認」用編號 `1. `。範例見 `reports/2026-09.narrative.txt`。
    總評要回答老闆真正關心的問題，而不是複述數字：
    - **整體業務量方向**：環比／同比，用 `waterfall`（環比）與 `waterfall_yoy`（同比）說明變動主要來自哪些品項；
      同比總量變化小但 `dec_total`／`inc_total` 都大時，要點出「減少與增加互相抵銷、產品結構在改變」，
@@ -85,7 +87,7 @@ description: 產生「生產鍋數月報」——依 data/latest.xlsx 分析指�
    python3 tools/monthly_report.py --month YYYY-MM --preview
    ```
    預設以資料中該月最後一天為截止日；可加 `--asof YYYY-MM-DD` 指定。
-3. 讀 `reports/YYYY-MM-preview.json`，寫 **1~2 段**精簡總評存成
+3. 讀 `reports/YYYY-MM-preview.json`，寫 **1~2 段**精簡總評（條列式，範例見 `reports/2026-10-preview.narrative.txt`）存成
    `reports/YYYY-MM-preview.narrative.txt`，重點放在「**開會時該問什麼**」：
    - 開頭註明「資料截至 M/D，與上月／去年同期比較，本月尚未結束」。
    - 同期比較的方向。**不要寫任何推估值**（如推估全月量），只用實際數字。

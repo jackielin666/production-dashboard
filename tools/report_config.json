@@ -18,7 +18,7 @@
   "anomaly_new_low_pct": 20,
   "anomaly_new_high_pct": 300,
   "anomaly_kg_coverage_pct": 50,
-  "waterfall_items": 5,
+  "waterfall_items": 10,
   "preview_gap_days": 5,
   "_planned_shutdowns_help": "已知的計畫性停產（員工旅遊、年度保養等）。期中預覽遇到這段期間的無生產紀錄，會標示為計畫性停產，而不是提醒資料漏登。只影響說明文字，不改變燈號與數字。",
   "planned_shutdowns": [

@@ -4,7 +4,7 @@
  "mon": 9,
  "prev_label": "2026/08",
  "yoy_label": "2025/09",
- "generated_at": "2026-11-02 01:37",
+ "generated_at": "2026-11-02 02:08",
  "preview": null,
  "incomplete": false,
  "is_latest_month": false,
@@ -1980,14 +1980,64 @@
     "delta": -50
    },
    {
-    "label": "其他 33 項減少",
-    "code": "",
-    "delta": -497
+    "label": "草莓餡45%(1*6Kg)",
+    "code": "D0113",
+    "delta": -48
    },
    {
-    "label": "其他 20 項增加",
+    "label": "顆粒花生醬(1*12KG)",
+    "code": "D0122",
+    "delta": -42
+   },
+   {
+    "label": "上好佳草莓餡4.5KG",
+    "code": "C1030",
+    "delta": -36
+   },
+   {
+    "label": "深烤焙花生醬(1*18KG)",
+    "code": "D0422",
+    "delta": -36
+   },
+   {
+    "label": "草莓餡°(1*6KG)",
+    "code": "D1410-1",
+    "delta": -36
+   },
+   {
+    "label": "其他 28 項減少",
     "code": "",
-    "delta": 162
+    "delta": -299
+   },
+   {
+    "label": "其他 15 項增加",
+    "code": "",
+    "delta": 98
+   },
+   {
+    "label": "藍莓餡(1*6KG)",
+    "code": "D0330",
+    "delta": 12
+   },
+   {
+    "label": "＃2花生（粒）(1*800g)",
+    "code": "B2041",
+    "delta": 12
+   },
+   {
+    "label": "顆粒花生醬(全)",
+    "code": "A2060",
+    "delta": 12
+   },
+   {
+    "label": "開心草莓果醬(1*430g)",
+    "code": "A1040",
+    "delta": 12
+   },
+   {
+    "label": "藍莓餡(1*6kg)",
+    "code": "D1130",
+    "delta": 16
    },
    {
     "label": "草莓餡(1*6Kg)",
@@ -2048,14 +2098,64 @@
     "delta": -50
    },
    {
-    "label": "其他 35 項減少",
-    "code": "",
-    "delta": -571
+    "label": "藍莓餡(1*6KG)",
+    "code": "D0330",
+    "delta": -48
    },
    {
-    "label": "其他 24 項增加",
+    "label": "深烤焙花生醬(1*18KG)",
+    "code": "D0422",
+    "delta": -48
+   },
+   {
+    "label": "草莓蒟蒻餡(1*6kg)",
+    "code": "D0310",
+    "delta": -44
+   },
+   {
+    "label": "＃2藍莓(1*900g)",
+    "code": "B3020",
+    "delta": -40
+   },
+   {
+    "label": "花生醬(1*18KG)",
+    "code": "D0420",
+    "delta": -40
+   },
+   {
+    "label": "其他 30 項減少",
     "code": "",
-    "delta": 177
+    "delta": -351
+   },
+   {
+    "label": "其他 19 項增加",
+    "code": "",
+    "delta": 109
+   },
+   {
+    "label": "＃2花生（粒）(1*800g)",
+    "code": "B2041",
+    "delta": 12
+   },
+   {
+    "label": "PET瓶花生(粒)(1*340g)",
+    "code": "A2050",
+    "delta": 12
+   },
+   {
+    "label": "開心草莓果醬(1*430g)",
+    "code": "A1040",
+    "delta": 12
+   },
+   {
+    "label": "藍莓餡(1*6Kg)",
+    "code": "D0134",
+    "delta": 16
+   },
+   {
+    "label": "上好佳草莓餡4.5KG",
+    "code": "C1030",
+    "delta": 16
    },
    {
     "label": "上好佳藍莓餡(大)4.5KG",
@@ -2096,7 +2196,7 @@
     "品項": "＃1花生(粒)(1*2.8kg)",
     "core": true,
     "tag": null,
-    "then": "136 鍋（比較基準 232，流失 96）",
+    "then": "136 鍋（比較基準 232 鍋，流失 96 鍋）",
     "same": 136,
     "now": 128,
     "status": "未改善",
@@ -2108,7 +2208,7 @@
     "品項": "草莓醬(1*6kg)",
     "core": true,
     "tag": null,
-    "then": "24 鍋（比較基準 92，流失 68）",
+    "then": "24 鍋（比較基準 92 鍋，流失 68 鍋）",
     "same": 24,
     "now": 0,
     "status": "轉為斷單",
@@ -2120,7 +2220,7 @@
     "品項": "大圓草莓-新",
     "core": true,
     "tag": null,
-    "then": "76 鍋（比較基準 132，流失 56）",
+    "then": "76 鍋（比較基準 132 鍋，流失 56 鍋）",
     "same": 76,
     "now": 104,
     "status": "回升中",
@@ -2132,7 +2232,7 @@
     "品項": "藍莓餡(1*6KG)",
     "core": true,
     "tag": null,
-    "then": "8 鍋（比較基準 48，流失 40）",
+    "then": "8 鍋（比較基準 48 鍋，流失 40 鍋）",
     "same": 8,
     "now": 20,
     "status": "回升中",
@@ -2144,7 +2244,7 @@
     "品項": "芒果蜜桃醬(含桃丁)",
     "core": false,
     "tag": null,
-    "then": "0 鍋（比較基準 42，流失 42）",
+    "then": "0 鍋（比較基準 42 鍋，流失 42 鍋）",
     "same": 0,
     "now": 0,
     "status": "轉為斷單",
@@ -2156,7 +2256,7 @@
     "品項": "藍莓餡(1*6Kg)",
     "core": false,
     "tag": null,
-    "then": "11 鍋（比較基準 44，流失 33）",
+    "then": "11 鍋（比較基準 44 鍋，流失 33 鍋）",
     "same": 11,
     "now": 20,
     "status": "回升中",
@@ -2168,7 +2268,7 @@
     "品項": "＃1藍莓(1*3.2kg)",
     "core": false,
     "tag": null,
-    "then": "0 鍋（比較基準 32，流失 32）",
+    "then": "0 鍋（比較基準 32 鍋，流失 32 鍋）",
     "same": 0,
     "now": 0,
     "status": "轉為斷單",
@@ -2857,7 +2957,7 @@
   "anomaly_new_low_pct": 20,
   "anomaly_new_high_pct": 300,
   "anomaly_kg_coverage_pct": 50,
-  "waterfall_items": 5,
+  "waterfall_items": 10,
   "preview_gap_days": 5,
   "_planned_shutdowns_help": "已知的計畫性停產（員工旅遊、年度保養等）。期中預覽遇到這段期間的無生產紀錄，會標示為計畫性停產，而不是提醒資料漏登。只影響說明文字，不改變燈號與數字。",
   "planned_shutdowns": [
