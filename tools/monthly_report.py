@@ -42,7 +42,7 @@ C_DATE, C_CODE, C_NAME, C_POTS, C_SPEC, C_KG, C_DELETED = 0, 1, 2, 3, 4, 8, 20
 C_SEMI, C_FG = 7, 15   # 半成品數(實際)、成品數(實際)：完整性檢查用（空白＝生管尚未填寫；0 為有效值）
 
 
-# 月報頁上方導覽列：回儀表板、月報列表、登出（auth.js 會在 #pd-auth-slot 放登出鍵）
+# 月報頁上方導覽列：回儀表板「① 品項查詢」、月報列表、登出（auth.js 會在 #pd-auth-slot 放登出鍵）
 NAV_STYLE = ('<style>.rnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 18px;}'
              '.rnav a,.rnav-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;'
              'border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13.5px;font-weight:600;'
@@ -53,7 +53,7 @@ NAV_STYLE = ('<style>.rnav{display:flex;align-items:center;gap:8px;flex-wrap:wra
 
 
 def report_nav(on_index=False):
-    links = '<a href="../">← 回到儀表板</a>' + ('' if on_index else '<a href="./">📑 月報列表</a>')
+    links = '<a href="../#query">← 回到品項查詢</a>' + ('' if on_index else '<a href="./">📑 月報列表</a>')
     return ('<nav class="rnav no-print">%s%s<span class="sp"></span>'
             '<span id="pd-auth-slot" data-btn-class="rnav-btn" data-hide-badge></span></nav>' % (NAV_STYLE, links))
 
