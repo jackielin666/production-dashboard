@@ -1656,7 +1656,11 @@ document.addEventListener('DOMContentLoaded',function(){
   // Prefetch the published dataset so the "view current dashboard" button works
   fetch('data/latest.xlsx',{cache:'no-store'})
     .then(function(r){ if(!r.ok) throw 0; return r.arrayBuffer(); })
-    .then(function(buf){ publishedBytes=new Uint8Array(buf); var vb=document.getElementById('viewLatestBtn'); if(vb) vb.style.display='inline-flex'; })
+    .then(function(buf){
+      publishedBytes=new Uint8Array(buf); var vb=document.getElementById('viewLatestBtn'); if(vb) vb.style.display='inline-flex';
+      // 從月報按「回到品項查詢」（網址 #query）→ 不經上傳畫面，直接開已發布的儀表板（載入後預設即為 ① 品項查詢）
+      if(location.hash==='#query') viewLatest();
+    })
     .catch(function(){ /* nothing published yet -> upload only */ });
   const input=document.getElementById('fileInput');
   input.addEventListener('change',function(e){ if(e.target.files&&e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
