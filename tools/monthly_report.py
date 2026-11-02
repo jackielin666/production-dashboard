@@ -821,7 +821,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
                 st, cls = '未改善', 'mid'
             items.append({'kind': '%s級衰退' % a['grade'], '料號': a['料號'], '品項': a['品項'],
                           'core': a['core'], 'tag': a.get('tag'),
-                          'then': '%s 鍋（比較基準 %s，流失 %s）' % (
+                          'then': '%s 鍋（比較基準 %s 鍋，流失 %s 鍋）' % (
                               '{:,}'.format(last), '{:,}'.format(ref_v), '{:,}'.format(a['loss'])),
                           'same': round(P(k, prev)), 'now': round(now), 'status': st, 'cls': cls})
         for d in Rp['dormant']:
@@ -934,14 +934,35 @@ def pct_span(v, label=''):
 
 
 def render_narrative(text):
+    """總評文字轉 HTML：空行分段；「- 」開頭為項目符號清單（前面空兩格＝子項目）、「1. 」開頭為編號清單；**粗體**。"""
     if not text:
         return ('<p class="muted">（本月總評尚未撰寫。由 Claude 依 '
                 'reports/%s.json 的數據判讀後補上。）</p>')
+
+    def inline(t):
+        return re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', esc(t.strip()))
+
     out = []
     for para in re.split(r'\n\s*\n', text.strip()):
-        line = esc(para.strip()).replace('\n', '<br>')
-        line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
-        out.append('<p>' + line + '</p>')
+        lst = None   # 目前開著的清單標籤：'ul' / 'ol' / None
+        for raw in para.strip().split('\n'):
+            m_ul = re.match(r'^(\s*)[-•]\s+(.*)$', raw)
+            m_ol = re.match(r'^\s*\d+[.)、]\s*(.*)$', raw)
+            tag = 'ul' if m_ul else ('ol' if m_ol else None)
+            if tag != lst:
+                if lst:
+                    out.append('</%s>' % lst)
+                if tag:
+                    out.append('<%s>' % tag)
+                lst = tag
+            if m_ul:
+                out.append(('<li class="sub">' if len(m_ul.group(1)) >= 2 else '<li>') + inline(m_ul.group(2)) + '</li>')
+            elif m_ol:
+                out.append('<li>' + inline(m_ol.group(1)) + '</li>')
+            elif raw.strip():
+                out.append('<p>' + inline(raw) + '</p>')
+        if lst:
+            out.append('</%s>' % lst)
     return '\n'.join(out)
 
 
@@ -1149,12 +1170,17 @@ h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em;}
 .kpi .lab{font-size:14px;color:var(--t3);margin-bottom:6px;}
 .kpi .val{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1;}
 .kpi .dlt{font-size:13.5px;margin-top:5px;font-family:var(--mono);color:var(--t3);}
+/* 瀑布圖品項多：窄螢幕給固定最小寬度、可左右滑動，避免標籤擠成一團 */
+.wf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;} .chart.wf{min-width:760px;}
+.wf-hint{display:none;} @media(max-width:800px){.wf-hint{display:inline;}}
+body.pdf .chart.wf{min-width:0;} body.pdf .wf-hint{display:none;}
 .kpi-link{color:inherit;text-decoration:none;border-bottom:1px dashed #94a3b8;} .kpi-link:hover{border-bottom-color:#1d4ed8;}
 .up{color:var(--green);} .dn{color:var(--red);} .flat{color:var(--t4);}
 .note{padding:12px 16px;border-radius:9px;font-size:14.5px;margin-bottom:18px;}
 .note.warn{background:#fef3c7;border:1px solid #f6d68a;color:#92400e;}
 .note.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
 .note.preview{background:#fff7ed;border:2px solid #fb923c;color:#9a3412;font-size:15px;line-height:1.7;}
+.note .nh{margin-bottom:4px;} .note ul.nl{margin:0;padding-left:20px;} .note ul.nl li{margin:2px 0;}
 tr.g-A{background:#fff7f7;}
 .glossary summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;}
 .glossary summary::-webkit-details-marker{display:none;}
@@ -1191,6 +1217,8 @@ td.empty{text-align:center;color:var(--t4);padding:20px;}
 .tbl-wrap{overflow-x:auto;}
 .muted{color:var(--t4);font-size:14px;}
 .narrative p{margin:0 0 13px;font-size:16px;line-height:1.8;color:var(--t2);}
+.narrative ul,.narrative ol{margin:-4px 0 14px;padding-left:22px;font-size:16px;line-height:1.75;color:var(--t2);}
+.narrative li{margin:0 0 6px;} .narrative li.sub{margin-left:22px;list-style:circle;}
 footer{margin-top:26px;font-size:13px;color:var(--t4);line-height:1.8;}
 @media(max-width:860px){.kpis{grid-template-columns:1fr 1fr;}.g2{grid-template-columns:1fr;}.gl-grid{grid-template-columns:1fr;}.wrap{padding:16px 13px 44px;}}
 /* ── PDF 簡報：A4 橫式，每頁頁尾有報告名稱與頁碼；分頁由下方 script 依頁高自動安排 ── */
@@ -1208,7 +1236,7 @@ body.pdf .card{min-width:0;} body.pdf .chart canvas{max-width:100%;}
 body.pdf .card{padding:14px 18px;margin-bottom:12px;} body.pdf .kpis{margin-bottom:12px;}
 body.pdf table{font-size:13.5px;} body.pdf th,body.pdf td{padding:5px 8px;} body.pdf th{font-size:12.5px;}
 body.pdf td .sub{font-size:11px;line-height:1.3;} body.pdf .tag{font-size:11.5px;padding:1px 7px;}
-body.pdf .narrative p{font-size:15px;line-height:1.75;margin-bottom:10px;} body.pdf .card .csub{margin-bottom:10px;}
+body.pdf .narrative p{font-size:15px;line-height:1.75;margin-bottom:10px;} body.pdf .narrative ul,body.pdf .narrative ol{font-size:15px;line-height:1.7;} body.pdf .card .csub{margin-bottom:10px;}
 body.pdf td.spark{padding:2px 8px;}
 body.pdf footer{font-size:10.5px;line-height:1.6;margin-top:6px;}
 body.pdf .gl-grid{grid-template-columns:1.1fr 1fr;}
@@ -1312,14 +1340,14 @@ __WARN__
 
 <div class="card" id="wf-mom">
   <h2>環比變動拆解（與上月比）</h2>
-  <div class="csub">__WF_SUB__</div>
-  <div class="chart tall"><canvas id="wfChart"></canvas></div>
+  <div class="csub">__WF_SUB__<span class="wf-hint">（圖表可左右滑動）</span></div>
+  <div class="wf-scroll"><div class="chart tall wf"><canvas id="wfChart"></canvas></div></div>
 </div>
 
 <div class="card" id="wf-yoy">
   <h2>同比變動拆解（與去年同月比）</h2>
-  <div class="csub">__WF_YOY_SUB__</div>
-  <div class="chart tall"><canvas id="wfYoyChart"></canvas></div>
+  <div class="csub">__WF_YOY_SUB__<span class="wf-hint">（圖表可左右滑動）</span></div>
+  <div class="wf-scroll"><div class="chart tall wf"><canvas id="wfYoyChart"></canvas></div></div>
 </div>
 
 <div class="card">
@@ -1479,13 +1507,14 @@ new Chart(document.getElementById('trendChart'), {
 // 2. 三期比較
 new Chart(document.getElementById('cmpChart'), {
   type:'bar',
-  data:{labels:R.preview ? ['本月至今 '+R.preview.cur_period, '上月同期 '+R.preview.prev_period, '去年同期 '+R.preview.yoy_period]
-                         : ['本月 '+R.month, '上月 '+R.prev_label, '去年同月 '+R.yoy_label], datasets:[
-    {label:'鍋數', data:[R.totals.pots, R.totals.pots_prev, R.totals.pots_yoy], backgroundColor:C.blue+'cc', borderRadius:5, yAxisID:'y'},
-    {label:'重量 (kg)', data:[R.totals.kg, R.totals.kg_prev, R.totals.kg_yoy], backgroundColor:C.teal+'99', borderRadius:5, yAxisID:'y1'}
+  // 由舊到新（去年 → 上月 → 本月），與右側季節性對照的時間方向一致；標籤分兩行避免被自動省略
+  data:{labels:R.preview ? [['去年同期', R.preview.yoy_period], ['上月同期', R.preview.prev_period], ['本月至今', R.preview.cur_period]]
+                         : [['去年同月', R.yoy_label], ['上月', R.prev_label], ['本月', R.month]], datasets:[
+    {label:'鍋數', data:[R.totals.pots_yoy, R.totals.pots_prev, R.totals.pots], backgroundColor:C.blue+'cc', borderRadius:5, yAxisID:'y'},
+    {label:'重量 (kg)', data:[R.totals.kg_yoy, R.totals.kg_prev, R.totals.kg], backgroundColor:C.teal+'99', borderRadius:5, yAxisID:'y1'}
   ]},
   options: baseOpts({scales:{
-    x:{grid:{display:false}, ticks:tick},
+    x:{grid:{display:false}, ticks:Object.assign({maxRotation:0, autoSkip:false}, tick)},
     y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}},
     y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:13}}}
   }})
@@ -1700,31 +1729,33 @@ def build_html(R, narrative):
     gc = R['grade_counts']
     warn = ''
     if pv:
-        warn = ('<div class="note preview">⏳ <strong>期中預覽 — %s，非正式月報</strong>：'
-                '資料截至 <strong>%s</strong>（第 %d 天／共 %d 天）。所有比較皆採「同期」口徑'
-                '（本月 %s 對比上月 %s、去年 %s），數字皆為實際值、不做推估。'
-                '斷單與燈號皆為暫定，%s。%s</div>' % (
+        li = ['資料截至 <strong>%s</strong>（第 %d 天／共 %d 天）' % (pv['asof'], pv['day'], pv['days_in_month']),
+              '比較口徑為「同期」：本月 %s 對比上月 %s、去年 %s' % (
+                  pv['cur_period'], pv['prev_period'], pv['yoy_period']),
+              '數字皆為實際值、不做推估；斷單與燈號皆為暫定，%s' % (
+                  '待生管補齊資料、無空缺後產生正式月報' if pv.get('full_month') else '正式結論以下月初的正式月報為準')]
+        if pv['day'] < 10:
+            li.append('⚠️ 目前僅 %d 天資料，單日排程差異就會讓比較大幅波動，判讀請保守' % pv['day'])
+        if R.get('kg_pending'):
+            li.append('⚖️ 本月重量尚未填入（有重量的鍋數僅占 %s%%），重量相關數字暫不具參考性' % R['kg_coverage'])
+        elif R.get('nokg_pots'):
+            li.append('⚖️ 尚有 %s 鍋未填重量（%s），重量數字偏低、暫不比較；這些批次不列入資料異常' % (
+                fmt(R['nokg_pots']), esc(pv.get('nokg_days') or '')))
+        if pv.get('blank'):
+            li.append('📝 <strong>資料尚有空缺：%d 筆有鍋數，但半成品數（實際）%d 筆、成品數（實際）%d 筆未填</strong>'
+                      '（%s），請生管補齊；補齊後才產生正式月報' % (
+                          pv['blank']['rows'], pv['blank']['semi'], pv['blank']['fg'], pv['blank']['days']))
+        for g in pv.get('gaps') or []:
+            if g.get('planned'):
+                li.append('🏖️ %s 連續 %d 天沒有生產紀錄：<strong>計畫性停產（%s）</strong>，'
+                          '同期比較會因生產天數較少而偏低' % (g['range'], g['days'], esc(g['planned'])))
+            else:
+                li.append('📭 <strong>%s 連續 %d 天沒有任何生產紀錄</strong>（過去一年正常月份最長 4 天），'
+                          '請確認是停產還是資料尚未登錄——若為漏登，本預覽的同期比較會偏低' % (g['range'], g['days']))
+        warn = ('<div class="note preview"><div class="nh">⏳ <strong>期中預覽 — %s，非正式月報</strong></div>'
+                '<ul class="nl">%s</ul></div>' % (
                     '本月資料尚未補齊' if pv.get('full_month') else '本月尚未結束',
-                    pv['asof'], pv['day'], pv['days_in_month'], pv['cur_period'],
-                    pv['prev_period'], pv['yoy_period'],
-                    '待生管補齊資料、無空缺後產生正式月報' if pv.get('full_month') else '正式結論以下月初的正式月報為準',
-                    ('<br>⚠️ 目前僅 %d 天資料，單日排程差異就會讓比較大幅波動，判讀請保守。' % pv['day']
-                     if pv['day'] < 10 else '')
-                    + ('<br>⚖️ 本月重量尚未填入（有重量的鍋數僅占 %s%%），重量相關數字暫不具參考性。' % R['kg_coverage']
-                       if R.get('kg_pending') else
-                       '<br>⚖️ 尚有 %s 鍋未填重量（%s），重量數字偏低、暫不比較；這些批次不列入資料異常。' % (
-                           fmt(R['nokg_pots']), esc(pv.get('nokg_days') or ''))
-                       if R.get('nokg_pots') else '')
-                    + ('<br>📝 <strong>資料尚有空缺：%d 筆有鍋數，但半成品數（實際）%d 筆、成品數（實際）%d 筆未填</strong>'
-                       '（%s），請生管補齊；補齊後才產生正式月報。' % (
-                           pv['blank']['rows'], pv['blank']['semi'], pv['blank']['fg'], pv['blank']['days'])
-                       if pv.get('blank') else '')
-                    + ''.join(('<br>🏖️ %s 連續 %d 天沒有生產紀錄：<strong>計畫性停產（%s）</strong>，'
-                               '同期比較會因生產天數較少而偏低。' % (g['range'], g['days'], esc(g['planned'])))
-                              if g.get('planned') else
-                              ('<br>📭 <strong>%s 連續 %d 天沒有任何生產紀錄</strong>（過去一年正常月份最長 4 天），'
-                               '請確認是停產還是資料尚未登錄——若為漏登，本預覽的同期比較會偏低。' % (g['range'], g['days']))
-                              for g in pv.get('gaps') or [])))
+                    ''.join('<li>%s</li>' % x for x in li)))
     elif R.get('kg_pending'):
         warn = ('<div class="note warn">⚖️ <strong>本月重量資料尚未填入</strong>：有重量的鍋數僅占 %s%%，'
                 '重量相關數字與資料異常檢查暫不具參考性。</div>' % R['kg_coverage'])
@@ -1763,7 +1794,7 @@ def build_html(R, narrative):
             pv['asof'], pv['prev_period'], pv['yoy_period'])
         cur_word = '本月至今'
         proj = ''
-        cmp_title = '本月至今 vs 上月同期 vs 去年同期'
+        cmp_title = '去年同期 → 上月同期 → 本月至今（由舊到新）'
         season_period = '' if pv['full_month'] else '，1–%d 日同期' % pv['day']
     else:
         cur_col, prev_col, yoy_col = '本月', '上月', '去年同月'
@@ -1771,7 +1802,7 @@ def build_html(R, narrative):
         header_sub = '業務量／接單趨勢分析　｜　與 %s（上月）、%s（去年同月）比較' % (R['prev_label'], R['yoy_label'])
         cur_word = '本月'
         proj = ''
-        cmp_title = '本月 vs 上月 vs 去年同月'
+        cmp_title = '去年同月 → 上月 → 本月（由舊到新）'
         season_period = ''
 
     # C 級收合
