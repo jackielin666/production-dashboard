@@ -185,6 +185,18 @@
     badge.querySelector('button').addEventListener('click', logout);
     document.body.appendChild(badge);
 
+    // 頁面若有頁首按鈕列（<span id="pd-auth-slot" data-btn-class="...">），也在那裡放一顆登出鍵
+    var slot = document.getElementById('pd-auth-slot');
+    if (slot) {
+      var sb = document.createElement('button');
+      sb.type = 'button';
+      sb.className = slot.getAttribute('data-btn-class') || '';
+      sb.title = '登出';
+      sb.textContent = '👤 ' + acct.name + '｜登出';
+      sb.addEventListener('click', logout);
+      slot.appendChild(sb);
+    }
+
     ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function (ev) {
       window.addEventListener(ev, touch, { passive: true, capture: true });
     });
