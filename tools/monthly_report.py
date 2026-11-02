@@ -42,6 +42,22 @@ C_DATE, C_CODE, C_NAME, C_POTS, C_SPEC, C_KG, C_DELETED = 0, 1, 2, 3, 4, 8, 20
 C_SEMI, C_FG = 7, 15   # 半成品數(實際)、成品數(實際)：完整性檢查用（空白＝生管尚未填寫；0 為有效值）
 
 
+# 月報頁上方導覽列：回儀表板、月報列表、登出（auth.js 會在 #pd-auth-slot 放登出鍵）
+NAV_STYLE = ('<style>.rnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 18px;}'
+             '.rnav a,.rnav-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;'
+             'border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13.5px;font-weight:600;'
+             'text-decoration:none;cursor:pointer;font-family:inherit;}'
+             '.rnav a:hover,.rnav-btn:hover{border-color:#1d4ed8;color:#1d4ed8;}'
+             '.rnav .sp{flex:1;}body.pdf .rnav{display:none!important;}'
+             '@media print{.rnav{display:none!important;}}</style>')
+
+
+def report_nav(on_index=False):
+    links = '<a href="../">← 回到儀表板</a>' + ('' if on_index else '<a href="./">📑 月報列表</a>')
+    return ('<nav class="rnav no-print">%s%s<span class="sp"></span>'
+            '<span id="pd-auth-slot" data-btn-class="rnav-btn" data-hide-badge></span></nav>' % (NAV_STYLE, links))
+
+
 # ────────────────────────── xlsx 讀取（純標準函式庫） ──────────────────────────
 def _col_index(ref):
     m = re.match(r'([A-Z]+)', ref)
@@ -589,24 +605,29 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
         'series': series,
     }
 
-    # ── 環比瀑布：上月 → 各品項增減 → 本月 ──
+    # ── 變動瀑布：比較期 → 各品項增減 → 本月（環比＝上月、同比＝去年同月）──
     wf_n = int(cfg.get('waterfall_items', 5))
-    deltas = [(k, P(k, cur) - P(k, prev)) for k in keys]
-    neg = sorted([d for d in deltas if d[1] < 0], key=lambda d: d[1])
-    pos = sorted([d for d in deltas if d[1] > 0], key=lambda d: -d[1])
-    steps = []
-    for k, d in neg[:wf_n]:
-        steps.append({'label': meta[k]['品項'], 'code': meta[k]['料號'], 'delta': round(d)})
-    if neg[wf_n:]:
-        steps.append({'label': '其他 %d 項減少' % len(neg[wf_n:]), 'code': '',
-                      'delta': round(sum(d for _k, d in neg[wf_n:]))})
-    if pos[wf_n:]:
-        steps.append({'label': '其他 %d 項增加' % len(pos[wf_n:]), 'code': '',
-                      'delta': round(sum(d for _k, d in pos[wf_n:]))})
-    for k, d in reversed(pos[:wf_n]):
-        steps.append({'label': meta[k]['品項'], 'code': meta[k]['料號'], 'delta': round(d)})
-    waterfall = {'start': round(tot_pots_prev), 'end': round(tot_pots), 'steps': steps,
-                 'dec_total': round(sum(d for _k, d in neg)), 'inc_total': round(sum(d for _k, d in pos))}
+
+    def build_waterfall(base_ym, base_total):
+        deltas = [(k, P(k, cur) - P(k, base_ym)) for k in keys]
+        neg = sorted([d for d in deltas if d[1] < 0], key=lambda d: d[1])
+        pos = sorted([d for d in deltas if d[1] > 0], key=lambda d: -d[1])
+        steps = []
+        for k, d in neg[:wf_n]:
+            steps.append({'label': meta[k]['品項'], 'code': meta[k]['料號'], 'delta': round(d)})
+        if neg[wf_n:]:
+            steps.append({'label': '其他 %d 項減少' % len(neg[wf_n:]), 'code': '',
+                          'delta': round(sum(d for _k, d in neg[wf_n:]))})
+        if pos[wf_n:]:
+            steps.append({'label': '其他 %d 項增加' % len(pos[wf_n:]), 'code': '',
+                          'delta': round(sum(d for _k, d in pos[wf_n:]))})
+        for k, d in reversed(pos[:wf_n]):
+            steps.append({'label': meta[k]['品項'], 'code': meta[k]['料號'], 'delta': round(d)})
+        return {'start': round(base_total), 'end': round(tot_pots), 'steps': steps,
+                'dec_total': round(sum(d for _k, d in neg)), 'inc_total': round(sum(d for _k, d in pos))}
+
+    waterfall = build_waterfall(prev, tot_pots_prev)
+    waterfall_yoy = build_waterfall(yoy, tot_pots_yoy)
 
     # ── 資料異常：鍋數與重量不匹配（只點出，原因請生管單位說明）──
     # 重量常於事後補登：本月有重量的鍋數占比 < anomaly_kg_coverage_pct 時視為「重量尚未填入」，暫不檢查。
@@ -873,7 +894,7 @@ def compute(full, cmp, meta, month_counts, Y, M, cfg, preview=None, with_trackin
         'top_items': top_list, 'top_share': top_share, 'all_items': all_items,
         'categories': cats, 'same_month': same_month,
         'typical_mom': typical_mom, 'seasonal_note': seasonal_note, 'seasonal_sample': seasonal_sample,
-        'trend': trend, 'waterfall': waterfall, 'anomalies': anomalies, 'tracking': tracking,
+        'trend': trend, 'waterfall': waterfall, 'waterfall_yoy': waterfall_yoy, 'anomalies': anomalies, 'tracking': tracking,
         'ma': ma_block,
         'kg_coverage': round(kg_cov, 1), 'kg_pending': kg_pending, 'nokg_pots': round(nokg_pots),
         'factory_kg_per_pot': None if factory_kpp is None else round(factory_kpp, 1),
@@ -1128,6 +1149,7 @@ h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em;}
 .kpi .lab{font-size:14px;color:var(--t3);margin-bottom:6px;}
 .kpi .val{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1;}
 .kpi .dlt{font-size:13.5px;margin-top:5px;font-family:var(--mono);color:var(--t3);}
+.kpi-link{color:inherit;text-decoration:none;border-bottom:1px dashed #94a3b8;} .kpi-link:hover{border-bottom-color:#1d4ed8;}
 .up{color:var(--green);} .dn{color:var(--red);} .flat{color:var(--t4);}
 .note{padding:12px 16px;border-radius:9px;font-size:14.5px;margin-bottom:18px;}
 .note.warn{background:#fef3c7;border:1px solid #f6d68a;color:#92400e;}
@@ -1206,6 +1228,7 @@ body.pdf .gl-grid{grid-template-columns:1.1fr 1fr;}
 </head>
 <body>
 <div class="wrap">
+__NAV__
 <header class="top">
   <div>
     <h1>生產鍋數月報 · __MONTH____TITLE_SUFFIX__</h1>
@@ -1222,7 +1245,7 @@ __WARN__
 
 <div class="kpis">
   <div class="kpi"><div class="lab">__CUR_WORD__總鍋數</div><div class="val">__POTS__</div>
-    <div class="dlt">環比 __POTS_MOM__ ｜ 同比 __POTS_YOY__</div>__PROJ__</div>
+    <div class="dlt"><a class="kpi-link" href="#wf-mom" title="看環比變動拆解">環比 __POTS_MOM__</a> ｜ <a class="kpi-link" href="#wf-yoy" title="看同比變動拆解">同比 __POTS_YOY__</a></div>__PROJ__</div>
   <div class="kpi"><div class="lab">__CUR_WORD__總重量 (kg)</div><div class="val">__KG__</div>
     <div class="dlt">__KG_DLT__</div></div>
   <div class="kpi"><div class="lab">生產品項數</div><div class="val">__ITEMS__</div>
@@ -1287,10 +1310,16 @@ __WARN__
   </table></div>
 </div>
 
-<div class="card">
-  <h2>環比變動拆解</h2>
+<div class="card" id="wf-mom">
+  <h2>環比變動拆解（與上月比）</h2>
   <div class="csub">__WF_SUB__</div>
   <div class="chart tall"><canvas id="wfChart"></canvas></div>
+</div>
+
+<div class="card" id="wf-yoy">
+  <h2>同比變動拆解（與去年同月比）</h2>
+  <div class="csub">__WF_YOY_SUB__</div>
+  <div class="chart tall"><canvas id="wfYoyChart"></canvas></div>
 </div>
 
 <div class="card">
@@ -1507,16 +1536,17 @@ new Chart(document.getElementById('paretoChart'), {
   }})
 });
 
-// 8. 環比瀑布（浮動長條：總量為藍、減少為紅、增加為綠）
-(function(){
-  const W = R.waterfall, labels = [], data = [], colors = [], deltas = [];
+// 8. 環比／同比瀑布（浮動長條：總量為藍、減少為紅、增加為綠）
+function drawWaterfall(W, canvasId, startLabel){
+  if (!W || !document.getElementById(canvasId)) return;
+  const labels = [], data = [], colors = [], deltas = [];
   let run = W.start, lo = Math.min(W.start, W.end), hi = Math.max(W.start, W.end);
   W.steps.forEach(st => { run += st.delta; lo = Math.min(lo, run); hi = Math.max(hi, run); });
   run = W.start;
   // 縱軸不從 0 開始，否則小幅增減會看不見（總量長條以截斷方式呈現，說明文字已註明）
   const pad = Math.max(50, (hi - lo) * 0.15), step = Math.pow(10, Math.floor(Math.log10(Math.max(1, hi - lo + 2*pad))));
   const yMin = Math.max(0, Math.floor((lo - pad) / step) * step);
-  labels.push(R.preview ? '上月同期' : '上月 '+R.prev_label); data.push([0, W.start]); colors.push(C.blue+'cc'); deltas.push(null);
+  labels.push(startLabel); data.push([0, W.start]); colors.push(C.blue+'cc'); deltas.push(null);
   W.steps.forEach(st => {
     const next = run + st.delta;
     labels.push(shortName(st.label)); data.push([Math.min(run, next), Math.max(run, next)]);
@@ -1525,7 +1555,7 @@ new Chart(document.getElementById('paretoChart'), {
   });
   labels.push(R.preview ? '本月至今' : '本月 '+R.month); data.push([0, W.end]); colors.push(C.blue+'cc'); deltas.push(null);
   const fullNames = [labels[0]].concat(W.steps.map(st => st.label + (st.code ? '（'+st.code+'）' : ''))).concat([labels[labels.length-1]]);
-  new Chart(document.getElementById('wfChart'), {
+  new Chart(document.getElementById(canvasId), {
     type:'bar',
     data:{labels:labels, datasets:[{label:'鍋數', data:data, backgroundColor:colors, borderRadius:3, borderSkipped:false}]},
     options:{responsive:true, maintainAspectRatio:false,
@@ -1536,7 +1566,9 @@ new Chart(document.getElementById('paretoChart'), {
       scales:{x:{grid:{display:false}, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
               y:{grid:grid, ticks:tick, min:yMin, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}}}}
   });
-})();
+}
+drawWaterfall(R.waterfall, 'wfChart', R.preview ? '上月同期' : '上月 '+R.prev_label);
+drawWaterfall(R.waterfall_yoy, 'wfYoyChart', R.preview ? '去年同期' : '去年 '+R.yoy_label);
 
 // 9. YTD 累計（今年 vs 去年；有季節性代工時主線為排除後）
 (function(){
@@ -1770,6 +1802,10 @@ def build_html(R, narrative):
     wf_sub = '%s %s 鍋 → %s %s 鍋：減少合計 %s 鍋、增加合計 +%s 鍋。列出增減最大的各 %d 項，其餘合併；縱軸未從 0 開始以便看清增減，游標移到長條上可看完整品名與數字。' % (
         '上月同期' if pv else '上月', fmt(W['start']), cur_word, fmt(W['end']),
         fmt(W['dec_total']), fmt(W['inc_total']), int(cfg.get('waterfall_items', 5)))
+    WY = R.get('waterfall_yoy') or {'start': 0, 'end': 0, 'dec_total': 0, 'inc_total': 0}
+    wf_yoy_sub = '%s %s 鍋 → %s %s 鍋：減少合計 %s 鍋、增加合計 +%s 鍋。總量變化小時，也可能是「大幅減少」與「大幅增加」互相抵銷，請看各品項長條。列出增減最大的各 %d 項，其餘合併。' % (
+        '去年同期' if pv else '去年同月', fmt(WY['start']), cur_word, fmt(WY['end']),
+        fmt(WY['dec_total']), fmt(WY['inc_total']), int(cfg.get('waterfall_items', 5)))
 
     # YTD
     yb = R['ytd']
@@ -1847,7 +1883,7 @@ def build_html(R, narrative):
         '__MA_PCT__': '%g' % float(cfg.get('ma_trend_pct', 10)),
         '__MA_NOTE__': ('本月尚未結束，只計算到上個完整月份（%s）。' % esc(R['ma']['end'])) if pv and not pv['full_month'] else '',
         '__TRACK_ROWS__': tracking_rows(R),
-        '__WF_SUB__': wf_sub,
+        '__WF_SUB__': wf_sub, '__WF_YOY_SUB__': wf_yoy_sub, '__NAV__': report_nav(),
         '__YTD_POTS__': fmt(yb['pots']), '__YTD_PCT__': pct_span(yb['pct']),
         '__YTD_PREV__': fmt(yb['pots_prev']), '__YTD_NOTE__': ytd_note,
         '__NARRATIVE__': render_narrative(narrative) if narrative else render_narrative(None) % (
@@ -1925,10 +1961,9 @@ h1{font-size:26px;margin:0 0 6px;} .sub{font-size:15px;color:#64748b;margin-bott
 .a{font-size:13.5px;color:#64748b;white-space:nowrap;}
 .up{color:#16a34a;}.dn{color:#dc2626;}.flat{color:#94a3b8;}
 .muted{color:#94a3b8;font-size:13px;}
-a.back{display:inline-block;margin-bottom:18px;font-size:14.5px;color:#1d4ed8;text-decoration:none;}
 @media(max-width:640px){.row{grid-template-columns:1fr;gap:5px;}}
 </style></head><body><div class="wrap">
-<a class="back" href="../">← 回到儀表板</a>
+""" + report_nav(on_index=True) + """
 <h1>生產鍋數月報</h1>
 <div class="sub">依業務量（鍋數／重量）分析接單趨勢與衰退警示。點擊月份查看完整報告。橘色虛線框為「期中預覽」（本月尚未結束，與上月／去年同期比較）。</div>
 __ROWS__
