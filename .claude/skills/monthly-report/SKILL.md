@@ -44,7 +44,8 @@ description: 產生「生產鍋數月報」——依 data/latest.xlsx 分析指�
    python3 tools/monthly_report.py --month YYYY-MM --narrative reports/YYYY-MM.narrative.txt
    ```
    總評要回答老闆真正關心的問題，而不是複述數字：
-   - **整體業務量方向**：環比／同比，用 `waterfall` 說明變動主要來自哪些品項，
+   - **整體業務量方向**：環比／同比，用 `waterfall`（環比）與 `waterfall_yoy`（同比）說明變動主要來自哪些品項；
+     同比總量變化小但 `dec_total`／`inc_total` 都大時，要點出「減少與增加互相抵銷、產品結構在改變」，
      並用 `seasonal_note` 判斷是季節性還是實質衰退（`seasonal_sample` 樣本少於 3 年時要說「僅供參考」）。
    - **YTD**：用 `ytd` 區塊。有季節性代工時，**主數字用排除後的 `ytd.pots`／`ytd.pct`**，
      並清楚註明排除了哪些品項（`oem_names`、`oem_pots`）以及含代工的數字（`all_pots`／`all_pct`）。

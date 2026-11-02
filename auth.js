@@ -9,6 +9,7 @@
  *   - 關閉分頁或瀏覽器 → 需重新登入（sessionStorage）。
  *   - 閒置 15 分鐘自動登出；第 14 分鐘跳出提醒。
  *   - 滑鼠、鍵盤、觸控、捲動都算「有在使用」。
+ *   - 按「登出」→ 回到儀表板首頁；閒置自動登出 → 留在原頁，重新登入後可接著看。
  *
  * 帳號維護（新增／刪除／重設密碼）：改下方 ACCOUNTS，
  *   雜湊值用 `python3 tools/auth_hash.py 帳號 密碼` 產生。密碼明碼不要寫進任何檔案。
@@ -28,6 +29,9 @@
   var KEY = 'pd-auth';
 
   var root = document.documentElement;
+  // auth.js 放在網站根目錄，由它的位置推出儀表板首頁網址（月報頁在 reports/ 底下）
+  var HOME = (document.currentScript && document.currentScript.src)
+    ? new URL('./', document.currentScript.src).href : null;
 
   // 1) 立刻遮住頁面內容（在 <head> 同步執行，避免內容先閃現）
   var css = document.createElement('style');
@@ -55,6 +59,7 @@
     '  background:#0f172a;color:#fff;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px;font-size:14px;}',
     '#pd-warn button{font:inherit;font-weight:600;border:0;background:#fff;color:#0f172a;border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap;}',
     'body.pdf #pd-badge,body.pdf #pd-warn{display:none!important;}',
+    'html.pd-slot-only #pd-badge{display:none!important;}',
     '@media print{#pd-badge,#pd-warn,#pd-auth{display:none!important;}}'
   ].join('\n');
   (document.head || root).appendChild(css);
@@ -139,11 +144,14 @@
     });
   }
 
-  function logout() {
+  // toHome：手動登出回首頁；閒置自動登出則留在原頁
+  function logout(toHome) {
     session = null;   // 先清掉，避免換頁前的 pagehide 又把登入狀態存回去
     clear();
-    location.reload();
+    if (toHome === true && HOME) location.href = HOME;
+    else location.reload();
   }
+  function logoutHome() { logout(true); }
 
   // 3) 登入後：右下角身分標籤、閒置計時
   var lastWrite = 0;
@@ -182,10 +190,11 @@
     badge.id = 'pd-badge';
     badge.innerHTML = '<span></span><button type="button">登出</button>';
     badge.querySelector('span').textContent = acct.name + ' 已登入';
-    badge.querySelector('button').addEventListener('click', logout);
+    badge.querySelector('button').addEventListener('click', logoutHome);
     document.body.appendChild(badge);
 
-    // 頁面若有頁首按鈕列（<span id="pd-auth-slot" data-btn-class="...">），也在那裡放一顆登出鍵
+    // 頁面若有頁首按鈕列（<span id="pd-auth-slot" data-btn-class="...">），也在那裡放一顆登出鍵；
+    // 加上 data-hide-badge 則不再顯示右下角標籤
     var slot = document.getElementById('pd-auth-slot');
     if (slot) {
       var sb = document.createElement('button');
@@ -193,8 +202,10 @@
       sb.className = slot.getAttribute('data-btn-class') || '';
       sb.title = '登出';
       sb.textContent = '👤 ' + acct.name + '｜登出';
-      sb.addEventListener('click', logout);
+      sb.addEventListener('click', logoutHome);
       slot.appendChild(sb);
+      // 有導覽列的頁面（月報）只留導覽列上的登出鍵，不再顯示右下角標籤
+      if (slot.hasAttribute('data-hide-badge')) root.classList.add('pd-slot-only');
     }
 
     ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function (ev) {

@@ -1326,7 +1326,7 @@ function initQualityTab(){
   const PLACE = new Set(['-','專案','研發','']);
   // 資料有誤、所有月份都不納入分析的品項（料號 → 品項）。
   // 須與 tools/report_config.json 中 status 為 "excluded" 的品項一致，月報與儀表板數字才會相同。
-  const EXCLUDED = {'D0390':'化應子(1*2.5KG)'};
+  const EXCLUDED = {'D0390':'化應子(1*2.5KG)', '155121':'糖蜜柚泥'};
 
   function bround(x){ // Python round(): round-half-to-even
     const r = Math.round(x);
