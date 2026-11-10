@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<script src="../auth.js"></script>
+<title>生產鍋數月報 2026/10</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;
+--blue:#1d4ed8;--amber:#b45309;--teal:#0f766e;--red:#dc2626;--green:#16a34a;--r:12px;
+--sh:0 1px 3px rgba(15,23,42,.06);--mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+--font:'Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.65;font-size:15px;}
+.wrap{max-width:1240px;margin:0 auto;padding:26px 22px 60px;}
+header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em;}
+.sub{font-size:13.5px;color:var(--t3);}
+.light{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;font-weight:700;font-size:16px;}
+.light.red{background:#fee2e2;color:#991b1b;} .light.yellow{background:#fef3c7;color:#92400e;} .light.green{background:#dcfce7;color:#166534;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);margin-bottom:18px;}
+.card h2{font-size:19px;margin:0 0 4px;} .card .csub{font-size:13.5px;color:var(--t3);margin-bottom:14px;line-height:1.6;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;box-shadow:var(--sh);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#1d4ed8,#6366f1);}
+.kpi .lab{font-size:14px;color:var(--t3);margin-bottom:6px;}
+.kpi .val{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1;}
+.kpi .dlt{font-size:13.5px;margin-top:5px;font-family:var(--mono);color:var(--t3);}
+/* 瀑布圖品項多：窄螢幕給固定最小寬度、可左右滑動，避免標籤擠成一團 */
+.wf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;} .chart.wf{min-width:760px;}
+.wf-hint{display:none;} @media(max-width:800px){.wf-hint{display:inline;}}
+body.pdf .chart.wf{min-width:0;} body.pdf .wf-hint{display:none;}
+.kpi-link{color:inherit;text-decoration:none;border-bottom:1px dashed #94a3b8;} .kpi-link:hover{border-bottom-color:#1d4ed8;}
+.up{color:var(--green);} .dn{color:var(--red);} .flat{color:var(--t4);}
+.note{padding:12px 16px;border-radius:9px;font-size:14.5px;margin-bottom:18px;}
+.note.warn{background:#fef3c7;border:1px solid #f6d68a;color:#92400e;}
+.note.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
+.note.preview{background:#fff7ed;border:2px solid #fb923c;color:#9a3412;font-size:15px;line-height:1.7;}
+.note .nh{margin-bottom:4px;} .note ul.nl{margin:0;padding-left:20px;} .note ul.nl li{margin:2px 0;}
+tr.g-A{background:#fff7f7;}
+.glossary summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;}
+.glossary summary::-webkit-details-marker{display:none;}
+.glossary summary h2{display:inline;margin:0;}
+.gl-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:26px;margin-top:14px;}
+.gl-grid h3{font-size:16px;margin:16px 0 6px;} .gl-grid h3:first-child{margin-top:0;}
+.gl-grid p,.gl-grid li{font-size:15px;color:var(--t2);margin:4px 0;}
+.gl-grid ul{margin:4px 0 8px;padding-left:22px;}
+table.gl td{border-bottom:1px solid var(--border);padding:8px 8px;vertical-align:top;}
+table.gl td:first-child{width:70px;}
+table.ma td{vertical-align:middle;} td.spark{padding:4px 8px;width:186px;}
+tr.total{background:#f8fafc;}
+details.more{margin-top:12px;} details.more summary{cursor:pointer;font-size:14.5px;color:var(--blue);padding:6px 0;}
+.hero{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+.hero .big{font-size:30px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;}
+.hero .cmp{font-size:15px;color:var(--t3);font-family:var(--mono);}
+table{width:100%;border-collapse:collapse;font-size:15px;}
+th,td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
+th{background:#f8fafc;font-size:13.5px;color:var(--t3);font-weight:600;white-space:nowrap;}
+td.num{text-align:right;font-family:var(--mono);white-space:nowrap;}
+th.num{text-align:right;}
+td .sub{font-size:12px;color:var(--t4);font-family:var(--mono);}
+td.loss{color:var(--red);font-weight:600;} td.gain{color:var(--green);font-weight:600;}
+tr.row-real{background:#fff7f7;}
+td.empty{text-align:center;color:var(--t4);padding:20px;}
+.tag{display:inline-block;font-size:12.5px;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.t-red{background:#fee2e2;color:#991b1b;} .t-amber{background:#fef3c7;color:#92400e;}
+.t-grey{background:#f1f5f9;color:#64748b;} .t-core{background:#e0e7ff;color:#3730a3;font-weight:700;}
+.t-blue{background:#dbeafe;color:#1e40af;} .t-green{background:#dcfce7;color:#166534;}
+.t-note{background:#ede9fe;color:#5b21b6;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.chart{position:relative;height:330px;}
+.chart.tall{height:400px;}
+.tbl-wrap{overflow-x:auto;}
+.muted{color:var(--t4);font-size:14px;}
+.narrative p{margin:0 0 13px;font-size:16px;line-height:1.8;color:var(--t2);}
+.narrative ul,.narrative ol{margin:-4px 0 14px;padding-left:22px;font-size:16px;line-height:1.75;color:var(--t2);}
+.narrative li{margin:0 0 6px;} .narrative li.sub{margin-left:22px;list-style:circle;}
+footer{margin-top:26px;font-size:13px;color:var(--t4);line-height:1.8;}
+@media(max-width:860px){.kpis{grid-template-columns:1fr 1fr;}.g2{grid-template-columns:1fr;}.gl-grid{grid-template-columns:1fr;}.wrap{padding:16px 13px 44px;}}
+/* ── PDF 簡報：A4 橫式，每頁頁尾有報告名稱與頁碼；分頁由下方 script 依頁高自動安排 ── */
+.top-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.pdf-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:999px;border:1px solid #bfdbfe;
+  background:#eff6ff;color:#1d4ed8;font:inherit;font-size:15px;font-weight:600;cursor:pointer;}
+.pdf-btn:hover{background:#dbeafe;}
+.pdf-tip{font-size:12.5px;color:var(--t4);}
+@page{size:A4 landscape;margin:10mm 10mm 12mm;
+  @bottom-left{content:"生產鍋數月報 · 2026/10";font-size:9pt;color:#94a3b8;}
+  @bottom-right{content:"第 " counter(page) " / " counter(pages) " 頁";font-size:9pt;color:#94a3b8;}}
+body.pdf .wrap{width:1040px;max-width:none;margin:0;padding:0;}
+body.pdf .kpis{grid-template-columns:repeat(4,minmax(0,1fr));} body.pdf .g2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+body.pdf .card{min-width:0;} body.pdf .chart canvas{max-width:100%;}
+body.pdf .card{padding:14px 18px;margin-bottom:12px;} body.pdf .kpis{margin-bottom:12px;}
+body.pdf table{font-size:13.5px;} body.pdf th,body.pdf td{padding:5px 8px;} body.pdf th{font-size:12.5px;}
+body.pdf td .sub{font-size:11px;line-height:1.3;} body.pdf .tag{font-size:11.5px;padding:1px 7px;}
+body.pdf .narrative p{font-size:15px;line-height:1.75;margin-bottom:10px;} body.pdf .narrative ul,body.pdf .narrative ol{font-size:15px;line-height:1.7;} body.pdf .card .csub{margin-bottom:10px;}
+body.pdf td.spark{padding:2px 8px;}
+body.pdf footer{font-size:10.5px;line-height:1.6;margin-top:6px;}
+body.pdf .gl-grid{grid-template-columns:1.1fr 1fr;}
+@media print{
+  html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .no-print{display:none!important;}
+  .wrap{max-width:none;padding:0;}
+  .card,.kpi{box-shadow:none;}
+  .card,.g2,.kpis,header.top,.note{break-inside:avoid;}
+  .card.split{break-inside:auto;}
+  .card h2,.card .csub,.hero{break-after:avoid;}
+  tr{break-inside:avoid;} thead{display:table-header-group;}
+  .tbl-wrap{overflow:visible;}
+  .glossary summary .muted{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="rnav no-print"><style>.rnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 18px;}.rnav a,.rnav-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;}.rnav a:hover,.rnav-btn:hover{border-color:#1d4ed8;color:#1d4ed8;}.rnav .sp{flex:1;}body.pdf .rnav{display:none!important;}@media print{.rnav{display:none!important;}}</style><a href="../#query">← 回到品項查詢</a><a href="./">📑 月報列表</a><span class="sp"></span><span id="pd-auth-slot" data-btn-class="rnav-btn" data-hide-badge></span></nav>
+<header class="top">
+  <div>
+    <h1>生產鍋數月報 · 2026/10</h1>
+    <div class="sub">業務量／接單趨勢分析　｜　與 2026/09（上月）、2025/10（去年同月）比較　｜　產生於 2026-11-10 07:24</div>
+  </div>
+  <div class="top-right">
+    <div class="light red">🔴 需注意</div>
+    <div class="no-print"><button type="button" class="pdf-btn" id="pdfBtn" title="開啟列印視窗，目的地選「另存為 PDF」">📄 產生 PDF 簡報</button>
+      <div class="pdf-tip">列印視窗選「另存為 PDF」</div></div>
+  </div>
+</header>
+
+
+
+<div class="kpis">
+  <div class="kpi"><div class="lab">本月總鍋數</div><div class="val">2,870</div>
+    <div class="dlt"><a class="kpi-link" href="#wf-mom" title="看環比變動拆解">環比 <span class="up">▲ +37.1%</span></a> ｜ <a class="kpi-link" href="#wf-yoy" title="看同比變動拆解">同比 <span class="up">▲ +1.1%</span></a></div></div>
+  <div class="kpi"><div class="lab">本月總重量 (kg)</div><div class="val">381,633</div>
+    <div class="dlt">環比 <span class="up">▲ +31.4%</span> ｜ 同比 <span class="dn">▼ -3.3%</span></div></div>
+  <div class="kpi"><div class="lab">生產品項數</div><div class="val">67</div>
+    <div class="dlt">前 10 大占 65.1%</div></div>
+  <div class="kpi"><div class="lab">接單下滑警示（A+B 級）</div><div class="val">10</div>
+    <div class="dlt">A 6 ｜ B 4 ｜ 斷單 2</div></div>
+</div>
+
+<div class="card">
+  <h2>本月總評</h2>
+  <div class="csub">綜合判讀：需注意 — 1 項主力品項斷單（連續 ≥2 月）</div>
+  <div class="narrative"><p><strong>整體：10 月 2,870 鍋，環比 +37.1%、同比 +1.1%，業務量已回到去年同期水準；燈號紅燈，原因是主力品項草莓醬(1*6kg) 連續 2 個月斷單。</strong></p>
+<ul>
+<li>本月 20 個生產日（9 月 15 天、去年 10 月 20 天），<strong>每個生產日平均 143.5 鍋</strong>，高於 9 月 139.5、去年 10 月 141.8 鍋——每天的產量沒有下降。</li>
+<li><strong>環比大增主要是 9 月員工旅遊停產後生產天數恢復</strong>：增加 1,126 鍋（＃1草莓 +172、＃1花生 +128、深烤焙花生醬 +80、草莓蒟蒻餡 +76、蜜桔皮 +75），減少 349 鍋（藍莓餡 D0331 −64、大圓草莓-新 −56）。過去同月份環比平均為 −1.9%，本月應以停產後回補解讀（季節性樣本僅 2 年，僅供參考）。</li>
+<li><strong>同比只差 +33 鍋，但底下是「減少 721 鍋、增加 754 鍋」互相抵銷，產品結構正在改變</strong>，詳見「同比變動拆解」：</li>
+<li class="sub">減少：草莓醬 −90、＃1藍莓 −72、已下市的天天開心草莓餡 −48（計畫性下市，非流失）、＃1花生(粒) −44、草莓蒟蒻餡 −44、藍莓餡 D0330 −44、＃2藍莓 −40。</li>
+<li class="sub">增加：＃1花生 +84、上好佳草莓餡 +84、PET大花生 +60、蜜餞水果 +50、花生醬(1*18KG) +40。</li>
+<li class="sub">類別上，<strong>花生類 1,169 鍋（同比 +14.5%）成長、果醬餡類 1,700 鍋（同比 −6.4%）下滑</strong>，藍莓類是果醬餡類下滑的主因。</li>
+<li>半成品重量 381,633 kg（環比 +31.4%、同比 −3.3%），重量已全數填入，本月無資料異常。</li>
+<li>與期中預覽（2,744 鍋）相比，補齊資料後增加 126 鍋，請以本正式版為準。</li>
+</ul>
+<p><strong>年度累計與趨勢</strong></p>
+<ul>
+<li><strong>1–10 月累計 26,036 鍋，較去年同期 26,871 鍋 −3.1%</strong>（9 月底為 −3.6%），差距開始收斂。</li>
+<li>本業近 3 個月（8–10 月）平均 2,649 鍋，較去年同期 −6.3%，<strong>判定為趨勢持平</strong>；9 月擔心的「趨勢性衰退」隨 10 月恢復正常生產天數而解除。</li>
+</ul>
+<p><strong>主力品項（A 級警示與 3 個月趨勢）</strong></p>
+<ul>
+<li><strong>趨勢性衰退、需優先追蹤</strong>：</li>
+<li class="sub">＃1藍莓(1*3.2kg) B3011 72 鍋（上月 108、去年 144，−50%），3 個月趨勢 −10.0%。</li>
+<li class="sub">＃1花生(粒)(1*2.8kg) B2021 160 鍋（上月 128、去年 204），3 個月趨勢 −13.1%。</li>
+<li class="sub">藍莓餡(1*6KG) D0330 12 鍋（去年 56），已連續 2 個月下滑，3 個月趨勢 −76.7%。</li>
+<li class="sub">顆粒花生醬(1*12KG) D0121 42 鍋（去年 63），與上月持平未改善，3 個月趨勢 −12.5%。</li>
+<li><strong>單月波動、趨勢持平</strong>：大圓草莓-新 A1020 48 鍋（上月 104，3 個月趨勢 +3.6%）、草莓蒟蒻餡(1*6kg) D0310 264 鍋（去年 308，3 個月趨勢 +8.1%），多為排程波動。</li>
+<li><strong>斷單</strong>：<strong>草莓醬(1*6kg) D0210（前期月均 85 鍋）連續 2 個月未生產</strong>，3 個月趨勢 −92.1%，是本月紅燈原因、最大營收風險。</li>
+<li><strong>疑似流失</strong>：＃1花生(粒)(1*2.8kg) B2021-1 已連續 5 個月未生產。</li>
+<li>B 級重點：＃2藍莓(1*900g) B3020 20 鍋（去年 60，3 個月趨勢 −57.1%）、草莓餡(1*6KG) D2212 16 鍋（去年 48，趨勢 −50%）、＃1桔子(1*3.2kg) 68 鍋（去年 108，趨勢持平）、藍莓餡 D0331 20 鍋（上月 84）。上好佳芒果餡(大)4.5KG 連續 2 個月未生產。</li>
+<li><strong>藍莓類整體走弱</strong>（＃1藍莓、＃2藍莓、藍莓餡 D0330／D0331 同時下滑），建議作為一個產品線一起追蹤。</li>
+</ul>
+<p><strong>上期追蹤與成長面</strong></p>
+<ul>
+<li><strong>9 月最大風險 ＃1草莓(1*3.2kg) 已回升至 380 鍋</strong>（9 月 208、去年 10 月 360，同比 +5.6%），3 個月趨勢 −8.8% 屬持平。</li>
+<li>回升／恢復：＃1花生 608 鍋（同比 +16.0%，本月第一大品項）、草莓蒟蒻餡、草莓餡45% D0113（76 鍋）、上好佳草莓餡（84 鍋）、藍莓醬 D0230（52 鍋）已恢復；顆粒花生醬 D0122、PET大花生回升中。</li>
+<li>上月斷單恢復生產：深烤焙花生醬 80 鍋、蜜桔皮 75 鍋、蜜餞水果 50 鍋（上月列疑似流失，本月回來）、花生醬(1*18KG) 40 鍋、草莓餡° D1410-1 36 鍋。</li>
+<li>未改善：顆粒花生醬 D0121／D0120、＃2藍莓 B3020 仍停在上月水準。</li>
+<li>持續惡化：藍莓餡 D0330、草莓醬（持續斷單）。</li>
+<li>小量品項請見報告最後的「附錄：本月全品項明細」。</li>
+</ul>
+<p><strong>建議追查方向</strong></p>
+<ol>
+<li>請業務確認 <strong>草莓醬(1*6kg) D0210</strong> 是否還有訂單——主力品項已連續 2 個月斷單，若下月仍未生產將列為疑似流失。</li>
+<li>請業務說明 <strong>藍莓類</strong>（＃1藍莓 B3011、藍莓餡 D0330、＃2藍莓 B3020）的客戶訂單狀況，是否為同一客戶減量或轉單。</li>
+<li>確認 <strong>＃1花生(粒) B2021 與顆粒花生醬 D0121</strong> 的趨勢下滑原因，以及 B2021-1 是否已確定停單。</li>
+<li>追蹤 ＃1草莓 11 月是否維持回升，確認 9 月的下滑屬一次性。</li>
+</ol></div>
+  
+  <div class="note info" style="margin:14px 0 0">📅 <strong>季節性判讀：</strong>本月環比 37.1%，優於過去同月份平均的 -1.9%。<br><span style="font-size:12px">季節性參考樣本：2 年（2024、2025）。樣本少於 3 年，僅供參考。</span></div>
+</div>
+
+<div class="card glossary">
+  <details>
+  <summary><h2>📖 名詞說明：主力品項、A／B／C 級、衰退與斷單怎麼判定？</h2><span class="muted">（點開查看）</span></summary>
+  <div class="gl-grid">
+    <div>
+      <h3>接單下滑警示的觸發條件</h3>
+      <p>品項鍋數符合以下任一條件，就列入警示：</p>
+      <ul>
+        <li>較<strong>上月</strong>減少 ≥ 10%，且上月 ≥ 20 鍋</li>
+        <li>較<strong>去年同月</strong>減少 ≥ 10%，且去年同月 ≥ 20 鍋</li>
+      </ul>
+      <p>「≥ 20 鍋」是為了排除零星小量品項的雜訊。<strong>流失鍋數</strong>取兩者中減少較多的那一個。</p>
+      <h3>警示分級（只看鍋數）</h3>
+      <table class="gl">
+        <tr><td><span class="tag t-red">A 主力</span></td><td>觸發警示的品項屬於<strong>主力品項</strong>（右表）。不設門檻，一律列出。</td></tr>
+        <tr><td><span class="tag t-amber">B</span></td><td>非主力品項，流失 ≥ <strong>29 鍋</strong>（本業總鍋數的 1%，會隨淡旺季自動調整）。</td></tr>
+        <tr><td><span class="tag t-grey">C</span></td><td>非主力、流失 &lt; 29 鍋。影響小，預設收合。</td></tr>
+        <tr><td><span class="tag t-note">註</span></td><td>特殊品項（見頁尾「品項註記」）：季節性代工另列、不分級、不影響燈號；標「不納入分析」者所有數據皆已排除。</td></tr>
+      </table>
+      <h3>斷單警示</h3>
+      <p>前 6 個月中有 ≥3 個月正常生產，但本月完全沒有生產。連續未生產 ≥ 3 個月列為「疑似流失」。</p>
+      <h3>綜合燈號</h3>
+      <p>🔴 符合任一：本業較去年同月減少 ≥ 10%；本業<strong>近 3 個月平均</strong>較去年同期減少 ≥ 10%（趨勢性衰退）；主力品項斷單（連續 ≥2 月）；A 級流失合計 ≥ 本業總鍋數的 15%<br>
+         🟡 有 A 級衰退但未達紅燈，或總量小幅衰退　🟢 總量未衰退且無主力警示</p>
+      <p class="muted">「本業」＝全廠扣除季節性代工品項。</p>
+    </div>
+    <div>
+      <h3>主力品項（10 項）</h3>
+      <p>依<strong>前 12 個月（2025/10–2026/09）累計鍋數</strong>排名前 10 名，排除季節性代工、已下市與不納入分析的品項。
+         用前 12 個月而不用本月排名，才不會因為本月衰退就跌出主力名單。每月自動更新。</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th class="num">#</th><th>品項</th><th class="num">12 個月鍋數</th><th class="num">占比</th><th class="num">本月</th></tr></thead>
+        <tbody><tr><td class="num">1</td><td>＃1花生(1*2.8kg)<div class="sub">B2011</div></td><td class="num">6,192</td><td class="num">20.2%</td><td class="num">608</td></tr>
+<tr><td class="num">2</td><td>＃1草莓(1*3.2kg)<div class="sub">B1011</div></td><td class="num">3,944</td><td class="num">12.9%</td><td class="num">380</td></tr>
+<tr><td class="num">3</td><td>草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td class="num">2,800</td><td class="num">9.1%</td><td class="num">264</td></tr>
+<tr><td class="num">4</td><td>＃1花生(粒)(1*2.8kg)<div class="sub">B2021</div></td><td class="num">1,516</td><td class="num">4.9%</td><td class="num">160</td></tr>
+<tr><td class="num">5</td><td>大圓草莓-新<div class="sub">A1020</div></td><td class="num">996</td><td class="num">3.2%</td><td class="num">48</td></tr>
+<tr><td class="num">6</td><td>＃1藍莓(1*3.2kg)<div class="sub">B3011</div></td><td class="num">936</td><td class="num">3.1%</td><td class="num">72</td></tr>
+<tr><td class="num">7</td><td>草莓醬(1*6kg)<div class="sub">D0210</div></td><td class="num">860</td><td class="num">2.8%</td><td class="num">0</td></tr>
+<tr><td class="num">8</td><td>蜜桔皮<div class="sub">F0010</div></td><td class="num">667</td><td class="num">2.2%</td><td class="num">75</td></tr>
+<tr><td class="num">9</td><td>顆粒花生醬(1*12KG)<div class="sub">D0121</div></td><td class="num">636</td><td class="num">2.1%</td><td class="num">42</td></tr>
+<tr><td class="num">10</td><td>藍莓餡(1*6KG)<div class="sub">D0330</div></td><td class="num">588</td><td class="num">1.9%</td><td class="num">12</td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+  </details>
+</div>
+
+<div class="card">
+  <h2>上期追蹤 — 2026/09 點名事項</h2>
+  <div class="csub">依現行規則，2026/09 列為 A／B 級衰退、斷單或資料異常的品項，在本月的狀態（需處理的排在最前面）。「已恢復」＝回到當時比較基準的 90% 以上。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>類型</th><th>品項</th><th>上期狀況</th><th class="num">本月</th><th>本月狀態</th></tr></thead>
+    <tbody><tr><td>A級衰退</td><td><span class="tag t-core">主力</span> 藍莓餡(1*6KG)<div class="sub">D0330</div></td><td>20 鍋（比較基準 68 鍋，流失 48 鍋）</td><td class="num">12</td><td><span class="tag t-red">持續下滑</span></td></tr>
+<tr><td>斷單</td><td><span class="tag t-core">主力</span> 草莓醬(1*6kg)<div class="sub">D0210</div></td><td>0 鍋（前期月均 89）</td><td class="num">0</td><td><span class="tag t-red">持續斷單（連續 2 月）</span></td></tr>
+<tr><td>斷單</td><td>＃1花生(粒)(1*2.8kg)<div class="sub">B2021-1</div></td><td>0 鍋（前期月均 54）</td><td class="num">0</td><td><span class="tag t-red">持續斷單（連續 5 月）</span></td></tr>
+<tr><td>斷單</td><td>上好佳芒果餡(大)4.5KG<div class="sub">C7020</div></td><td>0 鍋（前期月均 20）</td><td class="num">0</td><td><span class="tag t-red">持續斷單（連續 2 月）</span></td></tr>
+<tr><td>A級衰退</td><td><span class="tag t-core">主力</span> ＃1草莓(1*3.2kg)<div class="sub">B1011</div></td><td>208 鍋（比較基準 464 鍋，流失 256 鍋）</td><td class="num">380</td><td><span class="tag t-amber">回升中</span></td></tr>
+<tr><td>A級衰退</td><td><span class="tag t-core">主力</span> ＃1花生(1*2.8kg)<div class="sub">B2011</div></td><td>480 鍋（比較基準 688 鍋，流失 208 鍋）</td><td class="num">608</td><td><span class="tag t-amber">回升中</span></td></tr>
+<tr><td>A級衰退</td><td><span class="tag t-core">主力</span> 顆粒花生醬(1*12KG)<div class="sub">D0121</div></td><td>42 鍋（比較基準 63 鍋，流失 21 鍋）</td><td class="num">42</td><td><span class="tag t-amber">未改善</span></td></tr>
+<tr><td>B級衰退</td><td>顆粒花生醬(1*12KG)<div class="sub">D0122</div></td><td>21 鍋（比較基準 63 鍋，流失 42 鍋）</td><td class="num">42</td><td><span class="tag t-amber">回升中</span></td></tr>
+<tr><td>B級衰退</td><td>＃2藍莓(1*900g)<div class="sub">B3020</div></td><td>20 鍋（比較基準 60 鍋，流失 40 鍋）</td><td class="num">20</td><td><span class="tag t-amber">未改善</span></td></tr>
+<tr><td>B級衰退</td><td>PET大花生(1*400g)<div class="sub">A2020</div></td><td>40 鍋（比較基準 76 鍋，流失 36 鍋）</td><td class="num">60</td><td><span class="tag t-amber">回升中</span></td></tr>
+<tr><td>B級衰退</td><td>顆粒花生醬(1*12KG)<div class="sub">D0120</div></td><td>21 鍋（比較基準 54 鍋，流失 33 鍋）</td><td class="num">21</td><td><span class="tag t-amber">未改善</span></td></tr>
+<tr><td>A級衰退</td><td><span class="tag t-core">主力</span> 草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td>188 鍋（比較基準 292 鍋，流失 104 鍋）</td><td class="num">264</td><td><span class="tag t-green">已恢復</span></td></tr>
+<tr><td>B級衰退</td><td>草莓餡45%(1*6Kg)<div class="sub">D0113</div></td><td>16 鍋（比較基準 64 鍋，流失 48 鍋）</td><td class="num">76</td><td><span class="tag t-green">已恢復</span></td></tr>
+<tr><td>B級衰退</td><td>上好佳草莓餡4.5KG<div class="sub">C1030</div></td><td>16 鍋（比較基準 52 鍋，流失 36 鍋）</td><td class="num">84</td><td><span class="tag t-green">已恢復</span></td></tr>
+<tr><td>B級衰退</td><td>藍莓醬(1*6kg)<div class="sub">D0230</div></td><td>28 鍋（比較基準 56 鍋，流失 28 鍋）</td><td class="num">52</td><td><span class="tag t-green">已恢復</span></td></tr>
+<tr><td>斷單</td><td>深烤焙花生醬(1*18KG)<div class="sub">D0422</div></td><td>0 鍋（前期月均 58）</td><td class="num">80</td><td><span class="tag t-green">恢復生產</span></td></tr>
+<tr><td>斷單</td><td><span class="tag t-core">主力</span> 蜜桔皮<div class="sub">F0010</div></td><td>0 鍋（前期月均 52）</td><td class="num">75</td><td><span class="tag t-green">恢復生產</span></td></tr>
+<tr><td>斷單</td><td>花生醬(1*18KG)<div class="sub">D0420</div></td><td>0 鍋（前期月均 41）</td><td class="num">40</td><td><span class="tag t-green">恢復生產</span></td></tr>
+<tr><td>斷單</td><td>蜜餞水果(1*1kg)<div class="sub">F0020</div></td><td>0 鍋（前期月均 35）</td><td class="num">50</td><td><span class="tag t-green">恢復生產</span></td></tr>
+<tr><td>斷單</td><td>蔓越莓醬(1*6KG)<div class="sub">D0291</div></td><td>0 鍋（前期月均 34）</td><td class="num">6</td><td><span class="tag t-green">恢復生產</span></td></tr>
+<tr><td>斷單</td><td>草莓餡°(1*6KG)<div class="sub">D1410-1</div></td><td>0 鍋（前期月均 23）</td><td class="num">36</td><td><span class="tag t-green">恢復生產</span></td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="card" id="wf-mom">
+  <h2>環比變動拆解（與上月比）</h2>
+  <div class="csub">上月 2,093 鍋 → 本月 2,870 鍋：減少合計 -349 鍋、增加合計 +1,126 鍋。列出增減最大的各 10 項，其餘合併；縱軸未從 0 開始以便看清增減，游標移到長條上可看完整品名與數字。<span class="wf-hint">（圖表可左右滑動）</span></div>
+  <div class="wf-scroll"><div class="chart tall wf"><canvas id="wfChart"></canvas></div></div>
+</div>
+
+<div class="card" id="wf-yoy">
+  <h2>同比變動拆解（與去年同月比）</h2>
+  <div class="csub">去年同月 2,837 鍋 → 本月 2,870 鍋：減少合計 -721 鍋、增加合計 +754 鍋。總量變化小時，也可能是「大幅減少」與「大幅增加」互相抵銷，請看各品項長條。列出增減最大的各 10 項，其餘合併。<span class="wf-hint">（圖表可左右滑動）</span></div>
+  <div class="wf-scroll"><div class="chart tall wf"><canvas id="wfYoyChart"></canvas></div></div>
+</div>
+
+<div class="card">
+  <h2>整體業務量趨勢</h2>
+  <div class="csub">近 24 個月：柱狀為鍋數、折線為半成品重量(kg)。以鍋數為主要指標，重量為輔助參考。</div>
+  <div class="chart tall"><canvas id="trendChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>年度累計（YTD）</h2>
+  <div class="hero"><div class="big">26,036 鍋</div><div class="cmp">較去年同期 <span class="dn">▼ -3.1%</span>（去年 26,871 鍋）</div></div>
+  <div class="csub">1 月至本月累計鍋數，今年 vs 去年同期。</div>
+  <div class="chart"><canvas id="ytdChart"></canvas></div>
+</div>
+
+<div class="g2">
+  <div class="card"><h2>去年同月 → 上月 → 本月（由舊到新）</h2><div class="csub">鍋數與重量雙軌對照</div>
+    <div class="chart"><canvas id="cmpChart"></canvas></div></div>
+  <div class="card"><h2>季節性對照</h2><div class="csub">歷年同月份（10月）總鍋數，用以區分季節性淡季與實質衰退。季節性參考樣本：2 年（2024、2025）。樣本少於 3 年，僅供參考。</div>
+    <div class="chart"><canvas id="seasonChart"></canvas></div></div>
+</div>
+
+<div class="card">
+  <h2>接單下滑警示 — A／B 級流失鍋數</h2>
+  <div class="csub">依流失鍋數由大到小，最多列 10 項（C 級與季節性代工不列入圖表）</div>
+  <div class="chart tall"><canvas id="declineChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>接單下滑警示明細（分級）</h2>
+  <div class="csub"><strong>A 級</strong>＝主力品項｜<strong>B 級</strong>＝非主力且流失 ≥ 29 鍋｜<strong>C 級</strong>＝其餘，預設收合｜<strong>註</strong>＝季節性代工。判定方式見上方「📖 名詞說明」。<strong>3 個月趨勢</strong>：該品項近 3 個完整月份平均較去年同期（趨勢下滑＝趨勢性衰退，持平／成長＝多為單月排程波動）。「重量參考」欄僅供參考，不影響分級。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>等級</th><th>品項</th><th class="num">本月</th><th class="num">上月</th><th class="num">去年同月</th>
+      <th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>3 個月趨勢</th><th>重量參考</th></tr></thead>
+    <tbody><tr class="g-A"><td><span class="tag t-red">A 主力</span></td><td><span class="tag t-core">主力</span> ＃1藍莓(1*3.2kg)<div class="sub">B3011</div></td><td class="num">72</td><td class="num">108</td><td class="num">144</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num"><span class="dn">▼ -50.0%</span></td><td class="num loss">-72</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-10.0%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-A"><td><span class="tag t-red">A 主力</span></td><td><span class="tag t-core">主力</span> 大圓草莓-新<div class="sub">A1020</div></td><td class="num">48</td><td class="num">104</td><td class="num">60</td><td class="num"><span class="dn">▼ -53.8%</span></td><td class="num"><span class="dn">▼ -20.0%</span></td><td class="num loss">-56</td><td><span class="tag t-grey">趨勢持平</span><div class="sub">+3.6%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-A"><td><span class="tag t-red">A 主力</span></td><td><span class="tag t-core">主力</span> ＃1花生(粒)(1*2.8kg)<div class="sub">B2021</div></td><td class="num">160</td><td class="num">128</td><td class="num">204</td><td class="num"><span class="up">▲ +25.0%</span></td><td class="num"><span class="dn">▼ -21.6%</span></td><td class="num loss">-44</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-13.1%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-A"><td><span class="tag t-red">A 主力</span></td><td><span class="tag t-core">主力</span> 草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td class="num">264</td><td class="num">188</td><td class="num">308</td><td class="num"><span class="up">▲ +40.4%</span></td><td class="num"><span class="dn">▼ -14.3%</span></td><td class="num loss">-44</td><td><span class="tag t-grey">趨勢持平</span><div class="sub">+8.1%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-A"><td><span class="tag t-red">A 主力</span></td><td><span class="tag t-core">主力</span> 藍莓餡(1*6KG)<div class="sub">D0330</div></td><td class="num">12</td><td class="num">20</td><td class="num">56</td><td class="num"><span class="dn">▼ -40.0%</span></td><td class="num"><span class="dn">▼ -78.6%</span></td><td class="num loss">-44</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-76.7%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-A"><td><span class="tag t-red">A 主力</span></td><td><span class="tag t-core">主力</span> 顆粒花生醬(1*12KG)<div class="sub">D0121</div></td><td class="num">42</td><td class="num">42</td><td class="num">63</td><td class="num"><span class="flat">+0.0%</span></td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num loss">-21</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-12.5%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-B"><td><span class="tag t-amber">B</span></td><td>藍莓餡(1*6KG)<div class="sub">D0331</div></td><td class="num">20</td><td class="num">84</td><td class="num">0</td><td class="num"><span class="dn">▼ -76.2%</span></td><td class="num"><span class="flat">—</span></td><td class="num loss">-64</td><td><span class="tag t-grey">去年同期無生產</span></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-B"><td><span class="tag t-amber">B</span></td><td>＃2藍莓(1*900g)<div class="sub">B3020</div></td><td class="num">20</td><td class="num">20</td><td class="num">60</td><td class="num"><span class="flat">+0.0%</span></td><td class="num"><span class="dn">▼ -66.7%</span></td><td class="num loss">-40</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-57.1%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-B"><td><span class="tag t-amber">B</span></td><td>＃1桔子(1*3.2kg)<div class="sub">B5011</div></td><td class="num">68</td><td class="num">36</td><td class="num">108</td><td class="num"><span class="up">▲ +88.9%</span></td><td class="num"><span class="dn">▼ -37.0%</span></td><td class="num loss">-40</td><td><span class="tag t-grey">趨勢持平</span><div class="sub">-2.8%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-B"><td><span class="tag t-amber">B</span></td><td>草莓餡(1*6KG)<div class="sub">D2212</div></td><td class="num">16</td><td class="num">32</td><td class="num">48</td><td class="num"><span class="dn">▼ -50.0%</span></td><td class="num"><span class="dn">▼ -66.7%</span></td><td class="num loss">-32</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-50.0%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr></tbody>
+  </table></div>
+  <details class="more"><summary>展開 C 級 10 項（非主力、流失 &lt; 29 鍋）</summary><div class="tbl-wrap"><table><thead><tr><th>等級</th><th>品項</th><th class="num">本月</th><th class="num">上月</th><th class="num">去年同月</th><th class="num">環比</th><th class="num">同比</th><th class="num">流失鍋數</th><th>3 個月趨勢</th><th>重量參考</th></tr></thead><tbody><tr class="g-C"><td><span class="tag t-grey">C</span></td><td>蘋果餡(1*6Kg)<div class="sub">D0191-2</div></td><td class="num">0</td><td class="num">0</td><td class="num">28</td><td class="num"><span class="flat">—</span></td><td class="num"><span class="dn">▼ -100.0%</span></td><td class="num loss">-28</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-100.0%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>藍莓餡(1*6Kg)<div class="sub">D0131</div></td><td class="num">4</td><td class="num">20</td><td class="num">28</td><td class="num"><span class="dn">▼ -80.0%</span></td><td class="num"><span class="dn">▼ -85.7%</span></td><td class="num loss">-24</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-60.2%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>藍莓餡(1*6kg)<div class="sub">D1130</div></td><td class="num">0</td><td class="num">24</td><td class="num">16</td><td class="num"><span class="dn">▼ -100.0%</span></td><td class="num"><span class="dn">▼ -100.0%</span></td><td class="num loss">-24</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-20.0%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>#2草莓果醬(1*900g)<div class="sub">B1040</div></td><td class="num">40</td><td class="num">60</td><td class="num">60</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num loss">-20</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-24.4%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>顆粒花生醬(全)<div class="sub">A2060</div></td><td class="num">32</td><td class="num">48</td><td class="num">36</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num"><span class="dn">▼ -11.1%</span></td><td class="num loss">-16</td><td><span class="tag t-grey">趨勢持平</span><div class="sub">+3.6%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>開心草莓果醬(1*430g)<div class="sub">A1040</div></td><td class="num">15</td><td class="num">27</td><td class="num">30</td><td class="num"><span class="dn">▼ -44.4%</span></td><td class="num"><span class="dn">▼ -50.0%</span></td><td class="num loss">-15</td><td><span class="tag t-green">趨勢成長</span><div class="sub">+26.7%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>＃2花生（粒）(1*800g)<div class="sub">B2041</div></td><td class="num">12</td><td class="num">12</td><td class="num">24</td><td class="num"><span class="flat">+0.0%</span></td><td class="num"><span class="dn">▼ -50.0%</span></td><td class="num loss">-12</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-45.5%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>上好佳藍莓餡(大)4.5KG<div class="sub">C3080</div></td><td class="num">16</td><td class="num">24</td><td class="num">0</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num"><span class="flat">—</span></td><td class="num loss">-8</td><td><span class="tag t-grey">去年同期無生產</span></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>梨山草莓果醬(1*430g)<div class="sub">A1050</div></td><td class="num">16</td><td class="num">16</td><td class="num">20</td><td class="num"><span class="flat">+0.0%</span></td><td class="num"><span class="dn">▼ -20.0%</span></td><td class="num loss">-4</td><td><span class="tag t-grey">趨勢持平</span><div class="sub">+0.0%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr>
+<tr class="g-C"><td><span class="tag t-grey">C</span></td><td>草莓餡(1*6Kg)<div class="sub">D0111</div></td><td class="num">16</td><td class="num">16</td><td class="num">20</td><td class="num"><span class="flat">+0.0%</span></td><td class="num"><span class="dn">▼ -20.0%</span></td><td class="num loss">-4</td><td><span class="tag t-red">趨勢下滑</span><div class="sub">-33.3%</div></td><td><span class="tag t-grey">重量同步下降</span></td></tr></tbody></table></div></details>
+</div>
+
+<div class="card">
+  <h2>主力品項 3 個月趨勢（移動平均）</h2>
+  <div class="csub">單月產量受排程影響波動大，改看<strong>近 3 個月平均月鍋數</strong>（2026/08–2026/10）判斷趨勢：
+    與去年同期 3 個月（2025/08–2025/10）相比 ≤ −10% 為「趨勢下滑」、≥ +10% 為「趨勢成長」，可同時排除季節性。
+    小圖：灰色長條為各月鍋數、藍線為 3 個月移動平均（近 12 個月）。<strong>本業合計</strong>較去年同期 ≤ −10% 時亮紅燈（趨勢性衰退）；個別品項的趨勢僅供參考，不影響分級。</div>
+  <div class="tbl-wrap"><table class="ma">
+    <thead><tr><th>品項</th><th>近 12 個月走勢</th><th class="num">近 3 月<br>月均</th><th class="num">前 3 月<br>月均</th>
+      <th class="num">較前 3 月</th><th class="num">去年同期<br>月均</th><th class="num">較去年同期</th><th>趨勢判讀</th></tr></thead>
+    <tbody><tr class="total"><td><strong>本業合計</strong></td><td class="spark"><canvas id="ma0" width="170" height="44"></canvas></td><td class="num"><strong>2,649</strong></td><td class="num">2,394</td><td class="num"><span class="up">▲ +10.6%</span></td><td class="num">2,826</td><td class="num"><span class="dn">▼ -6.3%</span></td><td><span class="tag t-grey">趨勢持平</span></td></tr>
+<tr><td>＃1花生(1*2.8kg)<div class="sub">B2011</div></td><td class="spark"><canvas id="ma1" width="170" height="44"></canvas></td><td class="num"><strong>592</strong></td><td class="num">471</td><td class="num"><span class="up">▲ +25.8%</span></td><td class="num">591</td><td class="num"><span class="up">▲ +0.2%</span></td><td><span class="tag t-grey">趨勢持平</span></td></tr>
+<tr><td>＃1草莓(1*3.2kg)<div class="sub">B1011</div></td><td class="spark"><canvas id="ma2" width="170" height="44"></canvas></td><td class="num"><strong>347</strong></td><td class="num">300</td><td class="num"><span class="up">▲ +15.6%</span></td><td class="num">380</td><td class="num"><span class="dn">▼ -8.8%</span></td><td><span class="tag t-grey">趨勢持平</span></td></tr>
+<tr><td>草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td class="spark"><canvas id="ma3" width="170" height="44"></canvas></td><td class="num"><strong>248</strong></td><td class="num">217</td><td class="num"><span class="up">▲ +14.1%</span></td><td class="num">229</td><td class="num"><span class="up">▲ +8.1%</span></td><td><span class="tag t-grey">趨勢持平</span></td></tr>
+<tr><td>＃1花生(粒)(1*2.8kg)<div class="sub">B2021</div></td><td class="spark"><canvas id="ma4" width="170" height="44"></canvas></td><td class="num"><strong>141</strong></td><td class="num">69</td><td class="num"><span class="up">▲ +103.8%</span></td><td class="num">163</td><td class="num"><span class="dn">▼ -13.1%</span></td><td><span class="tag t-red">趨勢下滑</span></td></tr>
+<tr><td>大圓草莓-新<div class="sub">A1020</div></td><td class="spark"><canvas id="ma5" width="170" height="44"></canvas></td><td class="num"><strong>76</strong></td><td class="num">85</td><td class="num"><span class="dn">▼ -10.9%</span></td><td class="num">73</td><td class="num"><span class="up">▲ +3.6%</span></td><td><span class="tag t-grey">趨勢持平</span></td></tr>
+<tr><td>＃1藍莓(1*3.2kg)<div class="sub">B3011</div></td><td class="spark"><canvas id="ma6" width="170" height="44"></canvas></td><td class="num"><strong>96</strong></td><td class="num">65</td><td class="num"><span class="up">▲ +46.9%</span></td><td class="num">107</td><td class="num"><span class="dn">▼ -10.0%</span></td><td><span class="tag t-red">趨勢下滑</span></td></tr>
+<tr><td>草莓醬(1*6kg)<div class="sub">D0210</div></td><td class="spark"><canvas id="ma7" width="170" height="44"></canvas></td><td class="num"><strong>8</strong></td><td class="num">94</td><td class="num"><span class="dn">▼ -91.5%</span></td><td class="num">101</td><td class="num"><span class="dn">▼ -92.1%</span></td><td><span class="tag t-red">趨勢下滑</span></td></tr>
+<tr><td>蜜桔皮<div class="sub">F0010</div></td><td class="spark"><canvas id="ma8" width="170" height="44"></canvas></td><td class="num"><strong>42</strong></td><td class="num">33</td><td class="num"><span class="up">▲ +25.0%</span></td><td class="num">57</td><td class="num"><span class="dn">▼ -26.5%</span></td><td><span class="tag t-red">趨勢下滑</span></td></tr>
+<tr><td>顆粒花生醬(1*12KG)<div class="sub">D0121</div></td><td class="spark"><canvas id="ma9" width="170" height="44"></canvas></td><td class="num"><strong>49</strong></td><td class="num">49</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">56</td><td class="num"><span class="dn">▼ -12.5%</span></td><td><span class="tag t-red">趨勢下滑</span></td></tr>
+<tr><td>藍莓餡(1*6KG)<div class="sub">D0330</div></td><td class="spark"><canvas id="ma10" width="170" height="44"></canvas></td><td class="num"><strong>13</strong></td><td class="num">43</td><td class="num"><span class="dn">▼ -68.7%</span></td><td class="num">57</td><td class="num"><span class="dn">▼ -76.7%</span></td><td><span class="tag t-red">趨勢下滑</span></td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="card">
+  <h2>斷單警示</h2>
+  <div class="csub">前 6 個月中有 ≥3 個月正常生產，但本月完全沒有生產。連續未生產 ≥ 3 個月列為「疑似流失」。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th class="num">前期活躍月數</th><th class="num">平均月鍋數</th><th class="num">最後生產月</th><th class="num">連續未生產</th><th>狀態</th></tr></thead>
+    <tbody><tr><td><span class="tag t-core">主力</span> 草莓醬(1*6kg)<div class="sub">D0210</div></td><td class="num">5</td><td class="num">85</td><td class="num">2026/08（24 鍋）</td><td class="num">2 月</td><td><span class="tag t-amber">斷單</span></td></tr>
+<tr><td>上好佳芒果餡(大)4.5KG<div class="sub">C7020</div></td><td class="num">4</td><td class="num">20</td><td class="num">2026/08（8 鍋）</td><td class="num">2 月</td><td><span class="tag t-amber">斷單</span></td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="card">
+  <h2>資料異常 — 請生管單位說明</h2>
+  <div class="csub">條件：本月鍋數 ≥ 5 且 (1)「有鍋數但重量為 0」；(2) 每鍋重量偏離該品項前 12 個月中位數 ±50% 以上；或 (3) 歷史不足 3 個月的品項，每鍋重量低於全廠平均的 20% 或高於 300%。本報告不推測原因，請生管單位說明。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th class="num">本月鍋數</th><th class="num">本月重量 kg</th><th class="num">每鍋 kg</th>
+      <th class="num">比較基準 kg</th><th class="num">偏離</th><th>異常類型</th></tr></thead>
+    <tbody><tr><td colspan="7" class="empty">本月沒有鍋數與重量不匹配的品項 👍</td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="g2">
+  <div class="card"><h2>成長品項 Top 10</h2><div class="csub">依鍋數增加量排序</div>
+    <div class="chart"><canvas id="growthChart"></canvas></div></div>
+  <div class="card"><h2>產量集中度（Pareto）</h2><div class="csub">本月前 10 大品項鍋數與累積佔比</div>
+    <div class="chart"><canvas id="paretoChart"></canvas></div></div>
+</div>
+
+<div class="card">
+  <h2>成長品項明細</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th class="num">本月</th><th class="num">上月</th><th class="num">去年同月</th>
+      <th class="num">增加鍋數</th><th class="num">環比</th></tr></thead>
+    <tbody><tr><td>＃1草莓(1*3.2kg)<div class="sub">B1011</div></td><td class="num">380</td><td class="num">208</td><td class="num">360</td><td class="num gain">+172</td><td class="num"><span class="up">▲ +82.7%</span></td></tr>
+<tr><td>＃1花生(1*2.8kg)<div class="sub">B2011</div></td><td class="num">608</td><td class="num">480</td><td class="num">524</td><td class="num gain">+128</td><td class="num"><span class="up">▲ +26.7%</span></td></tr>
+<tr><td>上好佳草莓餡4.5KG<div class="sub">C1030</div></td><td class="num">84</td><td class="num">16</td><td class="num">0</td><td class="num gain">+84</td><td class="num"><span class="up">▲ +425.0%</span></td></tr>
+<tr><td>深烤焙花生醬(1*18KG)<div class="sub">D0422</div></td><td class="num">80</td><td class="num">0</td><td class="num">56</td><td class="num gain">+80</td><td class="num"><span class="flat">—</span></td></tr>
+<tr><td>草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td class="num">264</td><td class="num">188</td><td class="num">308</td><td class="num gain">+76</td><td class="num"><span class="up">▲ +40.4%</span></td></tr>
+<tr><td>蜜桔皮<div class="sub">F0010</div></td><td class="num">75</td><td class="num">0</td><td class="num">50</td><td class="num gain">+75</td><td class="num"><span class="flat">—</span></td></tr>
+<tr><td>PET大花生(1*400g)<div class="sub">A2020</div></td><td class="num">60</td><td class="num">40</td><td class="num">0</td><td class="num gain">+60</td><td class="num"><span class="up">▲ +50.0%</span></td></tr>
+<tr><td>草莓餡45%(1*6Kg)<div class="sub">D0113</div></td><td class="num">76</td><td class="num">16</td><td class="num">40</td><td class="num gain">+60</td><td class="num"><span class="up">▲ +375.0%</span></td></tr>
+<tr><td>蜜餞水果(1*1kg)<div class="sub">F0020</div></td><td class="num">50</td><td class="num">0</td><td class="num">0</td><td class="num gain">+50</td><td class="num"><span class="flat">—</span></td></tr>
+<tr><td>花生醬(1*18KG)<div class="sub">D0420</div></td><td class="num">40</td><td class="num">0</td><td class="num">0</td><td class="num gain">+40</td><td class="num"><span class="flat">—</span></td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="g2">
+  <div class="card"><h2>類別表現</h2><div class="csub">果醬餡類 vs 花生類</div>
+    <div class="chart"><canvas id="catChart"></canvas></div></div>
+  <div class="card"><h2>新品 / 回流品項</h2><div class="csub">本月首次生產，或中斷 3 個月以上後恢復</div>
+    <div class="tbl-wrap"><table><thead><tr><th>品項</th><th class="num">本月鍋數</th><th>備註</th></tr></thead>
+      <tbody><tr><td><span class="tag t-blue">新品</span> 天天熱帶水果餡 4.5KG<div class="sub">C9040</div></td><td class="num">8</td><td>—</td></tr>
+<tr><td><span class="tag t-green">回流</span> 蜜綠果6m/m<div class="sub">152010</div></td><td class="num">2</td><td>上次生產 2026/05</td></tr>
+<tr><td><span class="tag t-green">回流</span> ＃1草莓原漿(1*3.4kg)<div class="sub">B1031</div></td><td class="num">8</td><td>上次生產 2026/03</td></tr>
+<tr><td><span class="tag t-green">回流</span> 上好佳綜合莓餡4.5KG<div class="sub">C9050</div></td><td class="num">3</td><td>上次生產 2026/04</td></tr>
+<tr><td><span class="tag t-green">回流</span> 蘋果餡(1*6Kg)<div class="sub">D0191-1</div></td><td class="num">16</td><td>上次生產 2024/12</td></tr>
+<tr><td><span class="tag t-green">回流</span> 桑椹果粒茶(1*400G)<div class="sub">D0592</div></td><td class="num">6</td><td>上次生產 2026/06</td></tr>
+<tr><td><span class="tag t-green">回流</span> 文旦柚茶(1*420g)<div class="sub">D0593</div></td><td class="num">6</td><td>上次生產 2025/10</td></tr>
+<tr><td><span class="tag t-green">回流</span> 柚皮鮮果乾(100g)<div class="sub">D0594</div></td><td class="num">1</td><td>上次生產 2026/06</td></tr>
+<tr><td><span class="tag t-green">回流</span> 玫瑰洛神餡(1*4.5KG)<div class="sub">D0990</div></td><td class="num">3</td><td>上次生產 2026/05</td></tr>
+<tr><td><span class="tag t-green">回流</span> 文旦絲(1*1KG/包)<div class="sub">D0992</div></td><td class="num">1</td><td>上次生產 2026/06</td></tr>
+<tr><td><span class="tag t-green">回流</span> 柚皮糖B<div class="sub">D1792</div></td><td class="num">1</td><td>上次生產 2024/09</td></tr>
+<tr><td><span class="tag t-green">回流</span> 特殊藍莓餡(1*9.08kg)<div class="sub">D2531</div></td><td class="num">12</td><td>上次生產 2026/03</td></tr>
+<tr><td><span class="tag t-green">回流</span> 蜜餞水果(1*1kg)<div class="sub">F0020</div></td><td class="num">50</td><td>上次生產 2026/06</td></tr></tbody></table></div></div>
+</div>
+
+<div class="card">
+  <h2>本月產量前 10 大品項</h2>
+  <div class="csub">依本月鍋數排名（與「主力品項」不同：主力品項是依前 12 個月累計排名，見上方名詞說明）</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th class="num">鍋數</th><th class="num">佔比</th><th class="num">累積佔比</th></tr></thead>
+    <tbody><tr><td>＃1花生(1*2.8kg)<div class="sub">B2011</div></td><td class="num">608</td><td class="num">21.2%</td><td class="num">21.2%</td></tr>
+<tr><td>＃1草莓(1*3.2kg)<div class="sub">B1011</div></td><td class="num">380</td><td class="num">13.2%</td><td class="num">34.4%</td></tr>
+<tr><td>草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td class="num">264</td><td class="num">9.2%</td><td class="num">43.6%</td></tr>
+<tr><td>＃1花生(粒)(1*2.8kg)<div class="sub">B2021</div></td><td class="num">160</td><td class="num">5.6%</td><td class="num">49.2%</td></tr>
+<tr><td>上好佳草莓餡4.5KG<div class="sub">C1030</div></td><td class="num">84</td><td class="num">2.9%</td><td class="num">52.1%</td></tr>
+<tr><td>深烤焙花生醬(1*18KG)<div class="sub">D0422</div></td><td class="num">80</td><td class="num">2.8%</td><td class="num">54.9%</td></tr>
+<tr><td>草莓餡45%(1*6Kg)<div class="sub">D0113</div></td><td class="num">76</td><td class="num">2.6%</td><td class="num">57.6%</td></tr>
+<tr><td>蜜桔皮<div class="sub">F0010</div></td><td class="num">75</td><td class="num">2.6%</td><td class="num">60.2%</td></tr>
+<tr><td>＃1藍莓(1*3.2kg)<div class="sub">B3011</div></td><td class="num">72</td><td class="num">2.5%</td><td class="num">62.7%</td></tr>
+<tr><td>＃1桔子(1*3.2kg)<div class="sub">B5011</div></td><td class="num">68</td><td class="num">2.4%</td><td class="num">65.1%</td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="card glossary">
+  <details>
+  <summary><h2>附錄：本月全品項明細（67 項）</h2><span class="muted">（點開查看；產生 PDF 時自動展開）</span></summary>
+  <div class="csub" style="margin-top:8px">本月有生產的全部品項，依鍋數由多到少排列，含上方圖表與清單未列出的小量品項。重量為半成品重量(kg)，「—」表示尚未填寫。</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>品項</th><th>類別</th><th class="num">本月</th><th class="num">上月</th><th class="num">去年同月</th>
+      <th class="num">環比</th><th class="num">重量 kg</th></tr></thead>
+    <tbody><tr><td>＃1花生(1*2.8kg)<div class="sub">B2011</div></td><td>花生類</td><td class="num">608</td><td class="num">480</td><td class="num">524</td><td class="num"><span class="up">▲ +26.7%</span></td><td class="num">72,327</td></tr>
+<tr><td>＃1草莓(1*3.2kg)<div class="sub">B1011</div></td><td>果醬餡類</td><td class="num">380</td><td class="num">208</td><td class="num">360</td><td class="num"><span class="up">▲ +82.7%</span></td><td class="num">56,874</td></tr>
+<tr><td>草莓蒟蒻餡(1*6kg)<div class="sub">D0310</div></td><td>果醬餡類</td><td class="num">264</td><td class="num">188</td><td class="num">308</td><td class="num"><span class="up">▲ +40.4%</span></td><td class="num">40,722</td></tr>
+<tr><td>＃1花生(粒)(1*2.8kg)<div class="sub">B2021</div></td><td>花生類</td><td class="num">160</td><td class="num">128</td><td class="num">204</td><td class="num"><span class="up">▲ +25.0%</span></td><td class="num">19,163</td></tr>
+<tr><td>上好佳草莓餡4.5KG<div class="sub">C1030</div></td><td>果醬餡類</td><td class="num">84</td><td class="num">16</td><td class="num">0</td><td class="num"><span class="up">▲ +425.0%</span></td><td class="num">13,662</td></tr>
+<tr><td>深烤焙花生醬(1*18KG)<div class="sub">D0422</div></td><td>花生類</td><td class="num">80</td><td class="num">0</td><td class="num">56</td><td class="num"><span class="flat">—</span></td><td class="num">9,900</td></tr>
+<tr><td>草莓餡45%(1*6Kg)<div class="sub">D0113</div></td><td>果醬餡類</td><td class="num">76</td><td class="num">16</td><td class="num">40</td><td class="num"><span class="up">▲ +375.0%</span></td><td class="num">11,784</td></tr>
+<tr><td>蜜桔皮<div class="sub">F0010</div></td><td>果醬餡類</td><td class="num">75</td><td class="num">0</td><td class="num">50</td><td class="num"><span class="flat">—</span></td><td class="num">370</td></tr>
+<tr><td>＃1藍莓(1*3.2kg)<div class="sub">B3011</div></td><td>果醬餡類</td><td class="num">72</td><td class="num">108</td><td class="num">144</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num">10,611</td></tr>
+<tr><td>＃1桔子(1*3.2kg)<div class="sub">B5011</div></td><td>果醬餡類</td><td class="num">68</td><td class="num">36</td><td class="num">108</td><td class="num"><span class="up">▲ +88.9%</span></td><td class="num">10,384</td></tr>
+<tr><td>PET大花生(1*400g)<div class="sub">A2020</div></td><td>花生類</td><td class="num">60</td><td class="num">40</td><td class="num">0</td><td class="num"><span class="up">▲ +50.0%</span></td><td class="num">7,392</td></tr>
+<tr><td>小藍莓1*260G<div class="sub">A3010</div></td><td>果醬餡類</td><td class="num">56</td><td class="num">24</td><td class="num">32</td><td class="num"><span class="up">▲ +133.3%</span></td><td class="num">8,627</td></tr>
+<tr><td>藍莓醬(1*6kg)<div class="sub">D0230</div></td><td>果醬餡類</td><td class="num">52</td><td class="num">28</td><td class="num">20</td><td class="num"><span class="up">▲ +85.7%</span></td><td class="num">7,872</td></tr>
+<tr><td>蜜餞水果(1*1kg)<div class="sub">F0020</div></td><td>果醬餡類</td><td class="num">50</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">294</td></tr>
+<tr><td>大圓草莓-新<div class="sub">A1020</div></td><td>果醬餡類</td><td class="num">48</td><td class="num">104</td><td class="num">60</td><td class="num"><span class="dn">▼ -53.8%</span></td><td class="num">7,239</td></tr>
+<tr><td>顆粒花生醬(1*12KG)<div class="sub">D0121</div></td><td>花生類</td><td class="num">42</td><td class="num">42</td><td class="num">63</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">3,768</td></tr>
+<tr><td>顆粒花生醬(1*12KG)<div class="sub">D0122</div></td><td>花生類</td><td class="num">42</td><td class="num">21</td><td class="num">21</td><td class="num"><span class="up">▲ +100.0%</span></td><td class="num">3,888</td></tr>
+<tr><td>#2草莓果醬(1*900g)<div class="sub">B1040</div></td><td>果醬餡類</td><td class="num">40</td><td class="num">60</td><td class="num">60</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num">5,841</td></tr>
+<tr><td>花生醬(1*18KG)<div class="sub">D0420</div></td><td>花生類</td><td class="num">40</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">5,148</td></tr>
+<tr><td>＃2花生(1*800g)<div class="sub">B2031</div></td><td>花生類</td><td class="num">36</td><td class="num">20</td><td class="num">20</td><td class="num"><span class="up">▲ +80.0%</span></td><td class="num">4,511</td></tr>
+<tr><td>草莓椰果餡(1*6Kg)<div class="sub">D0114</div></td><td>果醬餡類</td><td class="num">36</td><td class="num">20</td><td class="num">20</td><td class="num"><span class="up">▲ +80.0%</span></td><td class="num">5,712</td></tr>
+<tr><td>草莓餡°(1*6KG)<div class="sub">D1410-1</div></td><td>果醬餡類</td><td class="num">36</td><td class="num">0</td><td class="num">16</td><td class="num"><span class="flat">—</span></td><td class="num">5,418</td></tr>
+<tr><td>顆粒花生醬(全)<div class="sub">A2060</div></td><td>花生類</td><td class="num">32</td><td class="num">48</td><td class="num">36</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num">3,916</td></tr>
+<tr><td>藍莓餡(1*6Kg)<div class="sub">D0134</div></td><td>果醬餡類</td><td class="num">32</td><td class="num">16</td><td class="num">0</td><td class="num"><span class="up">▲ +100.0%</span></td><td class="num">4,986</td></tr>
+<tr><td>顆粒花生醬(1*12KG)<div class="sub">D0120</div></td><td>花生類</td><td class="num">21</td><td class="num">21</td><td class="num">21</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,992</td></tr>
+<tr><td>PET瓶花生(1*340g)<div class="sub">A2040</div></td><td>花生類</td><td class="num">20</td><td class="num">16</td><td class="num">20</td><td class="num"><span class="up">▲ +25.0%</span></td><td class="num">2,392</td></tr>
+<tr><td>＃2藍莓(1*900g)<div class="sub">B3020</div></td><td>果醬餡類</td><td class="num">20</td><td class="num">20</td><td class="num">60</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">2,877</td></tr>
+<tr><td>上好佳柳橙餡4.5KG<div class="sub">C5020</div></td><td>果醬餡類</td><td class="num">20</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">3,105</td></tr>
+<tr><td>藍莓餡(1*6KG)<div class="sub">D0331</div></td><td>果醬餡類</td><td class="num">20</td><td class="num">84</td><td class="num">0</td><td class="num"><span class="dn">▼ -76.2%</span></td><td class="num">3,072</td></tr>
+<tr><td>梨山草莓果醬(1*430g)<div class="sub">A1050</div></td><td>果醬餡類</td><td class="num">16</td><td class="num">16</td><td class="num">20</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">2,317</td></tr>
+<tr><td>上好佳藍莓餡(大)4.5KG<div class="sub">C3080</div></td><td>果醬餡類</td><td class="num">16</td><td class="num">24</td><td class="num">0</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num">2,642</td></tr>
+<tr><td>草莓餡(1*6Kg)<div class="sub">D0111</div></td><td>果醬餡類</td><td class="num">16</td><td class="num">16</td><td class="num">20</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">2,508</td></tr>
+<tr><td>蘋果餡(1*6Kg)<div class="sub">D0191-1</div></td><td>果醬餡類</td><td class="num">16</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">2,484</td></tr>
+<tr><td>草莓餡(1*6KG)<div class="sub">D2212</div></td><td>果醬餡類</td><td class="num">16</td><td class="num">32</td><td class="num">48</td><td class="num"><span class="dn">▼ -50.0%</span></td><td class="num">2,448</td></tr>
+<tr><td>開心草莓果醬(1*430g)<div class="sub">A1040</div></td><td>果醬餡類</td><td class="num">15</td><td class="num">27</td><td class="num">30</td><td class="num"><span class="dn">▼ -44.4%</span></td><td class="num">2,386</td></tr>
+<tr><td>＃2花生（粒）(1*800g)<div class="sub">B2041</div></td><td>花生類</td><td class="num">12</td><td class="num">12</td><td class="num">24</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,440</td></tr>
+<tr><td>草莓果醬(桶)(1*9.5KG)<div class="sub">C1010</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">1,890</td></tr>
+<tr><td>藍莓餡（大）(1*9.08kg)<div class="sub">C3020</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">12</td><td class="num">12</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,889</td></tr>
+<tr><td>上好佳藍莓餡(大)4.5KG<div class="sub">C3081</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">12</td><td class="num">0</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,948</td></tr>
+<tr><td>鳳梨芒果百香果醬(1*6KG)<div class="sub">D0290</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">12</td><td class="num">12</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,728</td></tr>
+<tr><td>藍莓餡(1*6KG)<div class="sub">D0330</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">20</td><td class="num">56</td><td class="num"><span class="dn">▼ -40.0%</span></td><td class="num">1,812</td></tr>
+<tr><td>草莓餡(1*4.5Kg)<div class="sub">D0810</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">12</td><td class="num">8</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,908</td></tr>
+<tr><td>特殊藍莓餡(1*9.08kg)<div class="sub">D2531</div></td><td>果醬餡類</td><td class="num">12</td><td class="num">0</td><td class="num">12</td><td class="num"><span class="flat">—</span></td><td class="num">1,970</td></tr>
+<tr><td>PET瓶花生(粒)(1*340g)<div class="sub">A2050</div></td><td>花生類</td><td class="num">8</td><td class="num">12</td><td class="num">12</td><td class="num"><span class="dn">▼ -33.3%</span></td><td class="num">972</td></tr>
+<tr><td>＃1草莓原漿(1*3.4kg)<div class="sub">B1031</div></td><td>果醬餡類</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">1,166</td></tr>
+<tr><td>天天熱帶水果餡 4.5KG<div class="sub">C9040</div></td><td>果醬餡類</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">1,260</td></tr>
+<tr><td>上好佳藍莓餡(1*4.5kg)<div class="sub">D2233</div></td><td>果醬餡類</td><td class="num">8</td><td class="num">8</td><td class="num">0</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">1,282</td></tr>
+<tr><td>草莓果醬(1*6KG)<div class="sub">D2712</div></td><td>果醬餡類</td><td class="num">8</td><td class="num">8</td><td class="num">0</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">2,202</td></tr>
+<tr><td>花生醬(1*18KG)<div class="sub">D9922</div></td><td>花生類</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">990</td></tr>
+<tr><td>藍莓顆粒果醬(1*6kg)<div class="sub">D0231</div></td><td>果醬餡類</td><td class="num">6</td><td class="num">6</td><td class="num">18</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">972</td></tr>
+<tr><td>水蜜桃醬(1*6kg)<div class="sub">D0241</div></td><td>果醬餡類</td><td class="num">6</td><td class="num">6</td><td class="num">6</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">888</td></tr>
+<tr><td>蔓越莓醬(1*6KG)<div class="sub">D0291</div></td><td>果醬餡類</td><td class="num">6</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">882</td></tr>
+<tr><td>桑椹果粒茶(1*400G)<div class="sub">D0592</div></td><td>果醬餡類</td><td class="num">6</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">896</td></tr>
+<tr><td>文旦柚茶(1*420g)<div class="sub">D0593</div></td><td>果醬餡類</td><td class="num">6</td><td class="num">0</td><td class="num">6</td><td class="num"><span class="flat">—</span></td><td class="num">941</td></tr>
+<tr><td>小圓草莓(1*170g)<div class="sub">A1032</div></td><td>果醬餡類</td><td class="num">4</td><td class="num">0</td><td class="num">4</td><td class="num"><span class="flat">—</span></td><td class="num">614</td></tr>
+<tr><td>藍莓餡(1*6Kg)<div class="sub">D0131</div></td><td>果醬餡類</td><td class="num">4</td><td class="num">20</td><td class="num">28</td><td class="num"><span class="dn">▼ -80.0%</span></td><td class="num">576</td></tr>
+<tr><td>藍莓果醬(1*210G)<div class="sub">D0530</div></td><td>果醬餡類</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">607</td></tr>
+<tr><td>檸檬藍莓醬1*260G<div class="sub">A3012</div></td><td>果醬餡類</td><td class="num">3</td><td class="num">0</td><td class="num">5</td><td class="num"><span class="flat">—</span></td><td class="num">438</td></tr>
+<tr><td>上好佳綜合莓餡4.5KG<div class="sub">C9050</div></td><td>果醬餡類</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">459</td></tr>
+<tr><td>玫瑰洛神餡(1*4.5KG)<div class="sub">D0990</div></td><td>果醬餡類</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">446</td></tr>
+<tr><td>蜜綠果6m/m<div class="sub">152010</div></td><td>果醬餡類</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">208</td></tr>
+<tr><td>蜜桔皮6m/m<div class="sub">153010</div></td><td>果醬餡類</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">1,008</td></tr>
+<tr><td>蜜紅果6m/m<div class="sub">151010</div></td><td>果醬餡類</td><td class="num">1.5</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">168</td></tr>
+<tr><td>糖漬桔皮絲<div class="sub">111010</div></td><td>果醬餡類</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num"><span class="flat">+0.0%</span></td><td class="num">720</td></tr>
+<tr><td>柚皮鮮果乾(100g)<div class="sub">D0594</div></td><td>果醬餡類</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num"><span class="flat">—</span></td><td class="num">172</td></tr>
+<tr><td>文旦絲(1*1KG/包)<div class="sub">D0992</div></td><td>果醬餡類</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">380</td></tr>
+<tr><td>柚皮糖B<div class="sub">D1792</div></td><td>果醬餡類</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num"><span class="flat">—</span></td><td class="num">168</td></tr></tbody>
+  </table></div>
+  </details>
+</div>
+
+<footer>
+  資料來源：<code>data/latest.xlsx</code> →「資料總表」　｜　分析邏輯與門檻：<code>docs/monthly-report-logic.md</code><br>
+  本報告聚焦業務量（鍋數為主、半成品重量交叉驗證）；製成率／品質分析由「產品工時及製成率統計系統」負責，不在本報告範圍。<br>
+  警示門檻：降幅 ≥10%、基準量 ≥20 鍋；B 級流失 ≥ 本業總鍋數 1%　｜　斷單：前 6 個月 ≥3 月有生產而本月為 0，連續 ≥3 月列為疑似流失<br>
+  燈號：🔴 本業同比 ≤ −10%、本業近 3 個月平均較去年同期 ≤ −10%、主力品項斷單（連續 ≥2 月），或主力品項流失合計 ≥ 本業 15%　｜　🟡 有主力品項衰退但未達紅燈　｜　🟢 總量未衰退且無主力警示
+  <br>品項註記：<strong>不納入分析</strong> 糖蜜柚泥（155121）資料有誤，所有月份數據皆不納入分析（總量、YTD、趨勢、警示皆已排除）　｜　<strong>已下市</strong> 天天開心草莓餡4.5KG（C1020）不列入警示與燈號　｜　<strong>不納入分析</strong> 化應子(1*2.5KG)（D0390）資料有誤，所有月份數據皆不納入分析（總量、YTD、趨勢、警示皆已排除）
+</footer>
+</div>
+
+<script>
+const R = {"month": "2026/10", "year": 2026, "mon": 10, "prev_label": "2026/09", "yoy_label": "2025/10", "generated_at": "2026-11-10 07:24", "preview": null, "incomplete": false, "is_latest_month": false, "record_count": 120, "median_count": 110.5, "totals": {"pots": 2870, "pots_prev": 2093, "pots_yoy": 2837, "kg": 381633, "kg_prev": 290328, "kg_yoy": 394522, "items": 67, "mom_pct": 37.1, "yoy_pct": 1.1, "kg_mom_pct": 31.4, "kg_yoy_pct": -3.3, "ytd": 26036, "ytd_prev": 26871, "ytd_pct": -3.1, "ytd_kg": 3506330, "ytd_kg_prev": 3648279}, "ex_oem": null, "ytd": {"has_oem": false, "oem_names": "", "pots": 26036, "pots_prev": 26871, "pct": -3.1, "oem_pots": 0, "oem_pots_prev": 0, "all_pots": 26036, "all_pots_prev": 26871, "all_pct": -3.1, "series": {"labels": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月"], "this_ex": [3051, 5006, 8044, 10906, 13506, 15266, 18090, 21074, 23167, 26036], "last_ex": [2255, 4515, 6946, 9555, 12178, 15229, 18393, 21129, 24034, 26871], "this_all": [3051, 5006, 8044, 10906, 13506, 15266, 18090, 21074, 23167, 26036]}}, "annotated": [{"料號": "155121", "品項": "糖蜜柚泥", "status": "excluded", "label": "不納入分析", "note": "季節性客製化特殊品項，鍋數欄實際填的是包數（每包 15 kg）；自 2026/10 報告起所有月份數據皆不納入分析（糖蜜柚泥）"}, {"料號": "C1020", "品項": "天天開心草莓餡4.5KG", "status": "discontinued", "label": "已下市", "note": "已下市產品，非接單流失（天天開心草莓餡4.5KG）"}, {"料號": "D0390", "品項": "化應子(1*2.5KG)", "status": "excluded", "label": "不納入分析", "note": "代工品項，鍋數欄實際填的是公斤、7 月數據亦有誤；自 2026/09 報告起所有月份數據皆不納入分析（化應子(1*2.5KG)）"}], "alerts": [{"key": "B3011", "料號": "B3011", "品項": "＃1藍莓(1*3.2kg)", "類別": "果醬餡類", "pots_cur": 72, "pots_prev": 108, "pots_yoy": 144, "kg_cur": 10611, "kg_prev": 16038, "kg_yoy": 22032, "mom_pct": -33.3, "yoy_pct": -50.0, "kg_pct": -51.8, "basis": "YoY", "loss": 72, "pots_pct": -50.0, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -10.0, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "A1020", "料號": "A1020", "品項": "大圓草莓-新", "類別": "果醬餡類", "pots_cur": 48, "pots_prev": 104, "pots_yoy": 60, "kg_cur": 7239, "kg_prev": 15592, "kg_yoy": 9063, "mom_pct": -53.8, "yoy_pct": -20.0, "kg_pct": -53.6, "basis": "MoM", "loss": 56, "pots_pct": -53.8, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": 3.6, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "B2021", "料號": "B2021", "品項": "＃1花生(粒)(1*2.8kg)", "類別": "花生類", "pots_cur": 160, "pots_prev": 128, "pots_yoy": 204, "kg_cur": 19163, "kg_prev": 15666, "kg_yoy": 24934, "mom_pct": 25.0, "yoy_pct": -21.6, "kg_pct": -23.1, "basis": "YoY", "loss": 44, "pots_pct": -21.6, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -13.1, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0310", "料號": "D0310", "品項": "草莓蒟蒻餡(1*6kg)", "類別": "果醬餡類", "pots_cur": 264, "pots_prev": 188, "pots_yoy": 308, "kg_cur": 40722, "kg_prev": 29178, "kg_yoy": 49182, "mom_pct": 40.4, "yoy_pct": -14.3, "kg_pct": -17.2, "basis": "YoY", "loss": 44, "pots_pct": -14.3, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": 8.1, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "D0330", "料號": "D0330", "品項": "藍莓餡(1*6KG)", "類別": "果醬餡類", "pots_cur": 12, "pots_prev": 20, "pots_yoy": 56, "kg_cur": 1812, "kg_prev": 3084, "kg_yoy": 8604, "mom_pct": -40.0, "yoy_pct": -78.6, "kg_pct": -78.9, "basis": "YoY", "loss": 44, "pots_pct": -78.6, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -76.7, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0121", "料號": "D0121", "品項": "顆粒花生醬(1*12KG)", "類別": "花生類", "pots_cur": 42, "pots_prev": 42, "pots_yoy": 63, "kg_cur": 3768, "kg_prev": 3768, "kg_yoy": 5664, "mom_pct": 0.0, "yoy_pct": -33.3, "kg_pct": -33.5, "basis": "YoY", "loss": 21, "pots_pct": -33.3, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -12.5, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0331", "料號": "D0331", "品項": "藍莓餡(1*6KG)", "類別": "果醬餡類", "pots_cur": 20, "pots_prev": 84, "pots_yoy": 0, "kg_cur": 3072, "kg_prev": 13080, "kg_yoy": 0, "mom_pct": -76.2, "yoy_pct": null, "kg_pct": -76.5, "basis": "MoM", "loss": 64, "pots_pct": -76.2, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "B", "ma_yoy": null, "ma_verdict": "去年同期無生產", "ma_cls": "grey"}, {"key": "B3020", "料號": "B3020", "品項": "＃2藍莓(1*900g)", "類別": "果醬餡類", "pots_cur": 20, "pots_prev": 20, "pots_yoy": 60, "kg_cur": 2877, "kg_prev": 2863, "kg_yoy": 8956, "mom_pct": 0.0, "yoy_pct": -66.7, "kg_pct": -67.9, "basis": "YoY", "loss": 40, "pots_pct": -66.7, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "B", "ma_yoy": -57.1, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "B5011", "料號": "B5011", "品項": "＃1桔子(1*3.2kg)", "類別": "果醬餡類", "pots_cur": 68, "pots_prev": 36, "pots_yoy": 108, "kg_cur": 10384, "kg_prev": 5517, "kg_yoy": 15920, "mom_pct": 88.9, "yoy_pct": -37.0, "kg_pct": -34.8, "basis": "YoY", "loss": 40, "pots_pct": -37.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "B", "ma_yoy": -2.8, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "D2212", "料號": "D2212", "品項": "草莓餡(1*6KG)", "類別": "果醬餡類", "pots_cur": 16, "pots_prev": 32, "pots_yoy": 48, "kg_cur": 2448, "kg_prev": 4908, "kg_yoy": 7386, "mom_pct": -50.0, "yoy_pct": -66.7, "kg_pct": -66.9, "basis": "YoY", "loss": 32, "pots_pct": -66.7, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "B", "ma_yoy": -50.0, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0191-2", "料號": "D0191-2", "品項": "蘋果餡(1*6Kg)", "類別": "果醬餡類", "pots_cur": 0, "pots_prev": 0, "pots_yoy": 28, "kg_cur": 0, "kg_prev": 0, "kg_yoy": 4404, "mom_pct": null, "yoy_pct": -100.0, "kg_pct": -100.0, "basis": "YoY", "loss": 28, "pots_pct": -100.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": -100.0, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0131", "料號": "D0131", "品項": "藍莓餡(1*6Kg)", "類別": "果醬餡類", "pots_cur": 4, "pots_prev": 20, "pots_yoy": 28, "kg_cur": 576, "kg_prev": 3006, "kg_yoy": 4296, "mom_pct": -80.0, "yoy_pct": -85.7, "kg_pct": -86.6, "basis": "YoY", "loss": 24, "pots_pct": -85.7, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": -60.2, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D1130", "料號": "D1130", "品項": "藍莓餡(1*6kg)", "類別": "果醬餡類", "pots_cur": 0, "pots_prev": 24, "pots_yoy": 16, "kg_cur": 0, "kg_prev": 3672, "kg_yoy": 2538, "mom_pct": -100.0, "yoy_pct": -100.0, "kg_pct": -100.0, "basis": "MoM", "loss": 24, "pots_pct": -100.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": -20.0, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "B1040", "料號": "B1040", "品項": "#2草莓果醬(1*900g)", "類別": "果醬餡類", "pots_cur": 40, "pots_prev": 60, "pots_yoy": 60, "kg_cur": 5841, "kg_prev": 8796, "kg_yoy": 8936, "mom_pct": -33.3, "yoy_pct": -33.3, "kg_pct": -33.6, "basis": "MoM", "loss": 20, "pots_pct": -33.3, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": -24.4, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "A2060", "料號": "A2060", "品項": "顆粒花生醬(全)", "類別": "花生類", "pots_cur": 32, "pots_prev": 48, "pots_yoy": 36, "kg_cur": 3916, "kg_prev": 5964, "kg_yoy": 4444, "mom_pct": -33.3, "yoy_pct": -11.1, "kg_pct": -34.3, "basis": "MoM", "loss": 16, "pots_pct": -33.3, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": 3.6, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "A1040", "料號": "A1040", "品項": "開心草莓果醬(1*430g)", "類別": "果醬餡類", "pots_cur": 15, "pots_prev": 27, "pots_yoy": 30, "kg_cur": 2386, "kg_prev": 4277, "kg_yoy": 4781, "mom_pct": -44.4, "yoy_pct": -50.0, "kg_pct": -50.1, "basis": "YoY", "loss": 15, "pots_pct": -50.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": 26.7, "ma_verdict": "趨勢成長", "ma_cls": "ok"}, {"key": "B2041", "料號": "B2041", "品項": "＃2花生（粒）(1*800g)", "類別": "花生類", "pots_cur": 12, "pots_prev": 12, "pots_yoy": 24, "kg_cur": 1440, "kg_prev": 1472, "kg_yoy": 2950, "mom_pct": 0.0, "yoy_pct": -50.0, "kg_pct": -51.2, "basis": "YoY", "loss": 12, "pots_pct": -50.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": -45.5, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "C3080", "料號": "C3080", "品項": "上好佳藍莓餡(大)4.5KG", "類別": "果醬餡類", "pots_cur": 16, "pots_prev": 24, "pots_yoy": 0, "kg_cur": 2642, "kg_prev": 4000, "kg_yoy": 0, "mom_pct": -33.3, "yoy_pct": null, "kg_pct": -34.0, "basis": "MoM", "loss": 8, "pots_pct": -33.3, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": null, "ma_verdict": "去年同期無生產", "ma_cls": "grey"}, {"key": "A1050", "料號": "A1050", "品項": "梨山草莓果醬(1*430g)", "類別": "果醬餡類", "pots_cur": 16, "pots_prev": 16, "pots_yoy": 20, "kg_cur": 2317, "kg_prev": 2350, "kg_yoy": 2897, "mom_pct": 0.0, "yoy_pct": -20.0, "kg_pct": -20.0, "basis": "YoY", "loss": 4, "pots_pct": -20.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": 0.0, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "D0111", "料號": "D0111", "品項": "草莓餡(1*6Kg)", "類別": "果醬餡類", "pots_cur": 16, "pots_prev": 16, "pots_yoy": 20, "kg_cur": 2508, "kg_prev": 2508, "kg_yoy": 3066, "mom_pct": 0.0, "yoy_pct": -20.0, "kg_pct": -18.2, "basis": "YoY", "loss": 4, "pots_pct": -20.0, "verdict": "real", "verdict_label": "重量同步下降", "core": false, "tag": null, "oem": false, "grade": "C", "ma_yoy": -33.3, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}], "grade_counts": {"A": 6, "B": 4, "C": 10, "N": 0}, "b_threshold": 29, "core_loss": 281, "core_loss_pct": 9.8, "real_alert_count": 10, "core_real": [{"key": "B3011", "料號": "B3011", "品項": "＃1藍莓(1*3.2kg)", "類別": "果醬餡類", "pots_cur": 72, "pots_prev": 108, "pots_yoy": 144, "kg_cur": 10611, "kg_prev": 16038, "kg_yoy": 22032, "mom_pct": -33.3, "yoy_pct": -50.0, "kg_pct": -51.8, "basis": "YoY", "loss": 72, "pots_pct": -50.0, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -10.0, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "A1020", "料號": "A1020", "品項": "大圓草莓-新", "類別": "果醬餡類", "pots_cur": 48, "pots_prev": 104, "pots_yoy": 60, "kg_cur": 7239, "kg_prev": 15592, "kg_yoy": 9063, "mom_pct": -53.8, "yoy_pct": -20.0, "kg_pct": -53.6, "basis": "MoM", "loss": 56, "pots_pct": -53.8, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": 3.6, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "B2021", "料號": "B2021", "品項": "＃1花生(粒)(1*2.8kg)", "類別": "花生類", "pots_cur": 160, "pots_prev": 128, "pots_yoy": 204, "kg_cur": 19163, "kg_prev": 15666, "kg_yoy": 24934, "mom_pct": 25.0, "yoy_pct": -21.6, "kg_pct": -23.1, "basis": "YoY", "loss": 44, "pots_pct": -21.6, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -13.1, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0310", "料號": "D0310", "品項": "草莓蒟蒻餡(1*6kg)", "類別": "果醬餡類", "pots_cur": 264, "pots_prev": 188, "pots_yoy": 308, "kg_cur": 40722, "kg_prev": 29178, "kg_yoy": 49182, "mom_pct": 40.4, "yoy_pct": -14.3, "kg_pct": -17.2, "basis": "YoY", "loss": 44, "pots_pct": -14.3, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": 8.1, "ma_verdict": "趨勢持平", "ma_cls": "mid"}, {"key": "D0330", "料號": "D0330", "品項": "藍莓餡(1*6KG)", "類別": "果醬餡類", "pots_cur": 12, "pots_prev": 20, "pots_yoy": 56, "kg_cur": 1812, "kg_prev": 3084, "kg_yoy": 8604, "mom_pct": -40.0, "yoy_pct": -78.6, "kg_pct": -78.9, "basis": "YoY", "loss": 44, "pots_pct": -78.6, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -76.7, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}, {"key": "D0121", "料號": "D0121", "品項": "顆粒花生醬(1*12KG)", "類別": "花生類", "pots_cur": 42, "pots_prev": 42, "pots_yoy": 63, "kg_cur": 3768, "kg_prev": 3768, "kg_yoy": 5664, "mom_pct": 0.0, "yoy_pct": -33.3, "kg_pct": -33.5, "basis": "YoY", "loss": 21, "pots_pct": -33.3, "verdict": "real", "verdict_label": "重量同步下降", "core": true, "tag": null, "oem": false, "grade": "A", "ma_yoy": -12.5, "ma_verdict": "趨勢下滑", "ma_cls": "bad"}], "dormant": [{"key": "D0210", "料號": "D0210", "品項": "草莓醬(1*6kg)", "active_months": 5, "avg_pots": 85, "last_pots": 0, "gap_months": 2, "last_seen": "2026/08", "last_seen_pots": 24, "suspect_lost": false, "core": true, "tag": null}, {"key": "C7020", "料號": "C7020", "品項": "上好佳芒果餡(大)4.5KG", "active_months": 4, "avg_pots": 20, "last_pots": 0, "gap_months": 2, "last_seen": "2026/08", "last_seen_pots": 8, "suspect_lost": false, "core": false, "tag": null}], "growth": [{"key": "B1011", "料號": "B1011", "品項": "＃1草莓(1*3.2kg)", "pots_cur": 380, "pots_prev": 208, "pots_yoy": 360, "gain_mom": 172, "gain_yoy": 20, "gain": 172, "mom_pct": 82.7, "yoy_pct": 5.6, "tag": null}, {"key": "B2011", "料號": "B2011", "品項": "＃1花生(1*2.8kg)", "pots_cur": 608, "pots_prev": 480, "pots_yoy": 524, "gain_mom": 128, "gain_yoy": 84, "gain": 128, "mom_pct": 26.7, "yoy_pct": 16.0, "tag": null}, {"key": "C1030", "料號": "C1030", "品項": "上好佳草莓餡4.5KG", "pots_cur": 84, "pots_prev": 16, "pots_yoy": 0, "gain_mom": 68, "gain_yoy": 84, "gain": 84, "mom_pct": 425.0, "yoy_pct": null, "tag": null}, {"key": "D0422", "料號": "D0422", "品項": "深烤焙花生醬(1*18KG)", "pots_cur": 80, "pots_prev": 0, "pots_yoy": 56, "gain_mom": 80, "gain_yoy": 24, "gain": 80, "mom_pct": null, "yoy_pct": 42.9, "tag": null}, {"key": "D0310", "料號": "D0310", "品項": "草莓蒟蒻餡(1*6kg)", "pots_cur": 264, "pots_prev": 188, "pots_yoy": 308, "gain_mom": 76, "gain_yoy": -44, "gain": 76, "mom_pct": 40.4, "yoy_pct": -14.3, "tag": null}, {"key": "F0010", "料號": "F0010", "品項": "蜜桔皮", "pots_cur": 75, "pots_prev": 0, "pots_yoy": 50, "gain_mom": 75, "gain_yoy": 25, "gain": 75, "mom_pct": null, "yoy_pct": 50.0, "tag": null}, {"key": "A2020", "料號": "A2020", "品項": "PET大花生(1*400g)", "pots_cur": 60, "pots_prev": 40, "pots_yoy": 0, "gain_mom": 20, "gain_yoy": 60, "gain": 60, "mom_pct": 50.0, "yoy_pct": null, "tag": null}, {"key": "D0113", "料號": "D0113", "品項": "草莓餡45%(1*6Kg)", "pots_cur": 76, "pots_prev": 16, "pots_yoy": 40, "gain_mom": 60, "gain_yoy": 36, "gain": 60, "mom_pct": 375.0, "yoy_pct": 90.0, "tag": null}, {"key": "F0020", "料號": "F0020", "品項": "蜜餞水果(1*1kg)", "pots_cur": 50, "pots_prev": 0, "pots_yoy": 0, "gain_mom": 50, "gain_yoy": 50, "gain": 50, "mom_pct": null, "yoy_pct": null, "tag": null}, {"key": "D0420", "料號": "D0420", "品項": "花生醬(1*18KG)", "pots_cur": 40, "pots_prev": 0, "pots_yoy": 0, "gain_mom": 40, "gain_yoy": 40, "gain": 40, "mom_pct": null, "yoy_pct": null, "tag": null}], "core_items": [{"料號": "B2011", "品項": "＃1花生(1*2.8kg)", "base12": 6192, "share": 20.2, "pots_cur": 608, "pots_prev": 480}, {"料號": "B1011", "品項": "＃1草莓(1*3.2kg)", "base12": 3944, "share": 12.9, "pots_cur": 380, "pots_prev": 208}, {"料號": "D0310", "品項": "草莓蒟蒻餡(1*6kg)", "base12": 2800, "share": 9.1, "pots_cur": 264, "pots_prev": 188}, {"料號": "B2021", "品項": "＃1花生(粒)(1*2.8kg)", "base12": 1516, "share": 4.9, "pots_cur": 160, "pots_prev": 128}, {"料號": "A1020", "品項": "大圓草莓-新", "base12": 996, "share": 3.2, "pots_cur": 48, "pots_prev": 104}, {"料號": "B3011", "品項": "＃1藍莓(1*3.2kg)", "base12": 936, "share": 3.1, "pots_cur": 72, "pots_prev": 108}, {"料號": "D0210", "品項": "草莓醬(1*6kg)", "base12": 860, "share": 2.8, "pots_cur": 0, "pots_prev": 0}, {"料號": "F0010", "品項": "蜜桔皮", "base12": 667, "share": 2.2, "pots_cur": 75, "pots_prev": 0}, {"料號": "D0121", "品項": "顆粒花生醬(1*12KG)", "base12": 636, "share": 2.1, "pots_cur": 42, "pots_prev": 42}, {"料號": "D0330", "品項": "藍莓餡(1*6KG)", "base12": 588, "share": 1.9, "pots_cur": 12, "pots_prev": 20}], "core_window": "2025/10–2026/09", "newbies": [{"料號": "C9040", "品項": "天天熱帶水果餡 4.5KG", "pots": 8}], "returning": [{"料號": "152010", "品項": "蜜綠果6m/m", "pots": 2, "last_seen": "2026/05"}, {"料號": "B1031", "品項": "＃1草莓原漿(1*3.4kg)", "pots": 8, "last_seen": "2026/03"}, {"料號": "C9050", "品項": "上好佳綜合莓餡4.5KG", "pots": 3, "last_seen": "2026/04"}, {"料號": "D0191-1", "品項": "蘋果餡(1*6Kg)", "pots": 16, "last_seen": "2024/12"}, {"料號": "D0592", "品項": "桑椹果粒茶(1*400G)", "pots": 6, "last_seen": "2026/06"}, {"料號": "D0593", "品項": "文旦柚茶(1*420g)", "pots": 6, "last_seen": "2025/10"}, {"料號": "D0594", "品項": "柚皮鮮果乾(100g)", "pots": 1, "last_seen": "2026/06"}, {"料號": "D0990", "品項": "玫瑰洛神餡(1*4.5KG)", "pots": 3, "last_seen": "2026/05"}, {"料號": "D0992", "品項": "文旦絲(1*1KG/包)", "pots": 1, "last_seen": "2026/06"}, {"料號": "D1792", "品項": "柚皮糖B", "pots": 1, "last_seen": "2024/09"}, {"料號": "D2531", "品項": "特殊藍莓餡(1*9.08kg)", "pots": 12, "last_seen": "2026/03"}, {"料號": "F0020", "品項": "蜜餞水果(1*1kg)", "pots": 50, "last_seen": "2026/06"}], "top_items": [{"品項": "＃1花生(1*2.8kg)", "料號": "B2011", "pots": 608, "share": 21.2, "cum_share": 21.2}, {"品項": "＃1草莓(1*3.2kg)", "料號": "B1011", "pots": 380, "share": 13.2, "cum_share": 34.4}, {"品項": "草莓蒟蒻餡(1*6kg)", "料號": "D0310", "pots": 264, "share": 9.2, "cum_share": 43.6}, {"品項": "＃1花生(粒)(1*2.8kg)", "料號": "B2021", "pots": 160, "share": 5.6, "cum_share": 49.2}, {"品項": "上好佳草莓餡4.5KG", "料號": "C1030", "pots": 84, "share": 2.9, "cum_share": 52.1}, {"品項": "深烤焙花生醬(1*18KG)", "料號": "D0422", "pots": 80, "share": 2.8, "cum_share": 54.9}, {"品項": "草莓餡45%(1*6Kg)", "料號": "D0113", "pots": 76, "share": 2.6, "cum_share": 57.6}, {"品項": "蜜桔皮", "料號": "F0010", "pots": 75, "share": 2.6, "cum_share": 60.2}, {"品項": "＃1藍莓(1*3.2kg)", "料號": "B3011", "pots": 72, "share": 2.5, "cum_share": 62.7}, {"品項": "＃1桔子(1*3.2kg)", "料號": "B5011", "pots": 68, "share": 2.4, "cum_share": 65.1}], "top_share": 65.1, "all_items": [{"品項": "＃1花生(1*2.8kg)", "料號": "B2011", "類別": "花生類", "pots": 608.0, "prev": 480.0, "yoy": 524.0, "kg": 72327, "mom_pct": 26.7, "tag": null}, {"品項": "＃1草莓(1*3.2kg)", "料號": "B1011", "類別": "果醬餡類", "pots": 380.0, "prev": 208.0, "yoy": 360.0, "kg": 56874, "mom_pct": 82.7, "tag": null}, {"品項": "草莓蒟蒻餡(1*6kg)", "料號": "D0310", "類別": "果醬餡類", "pots": 264.0, "prev": 188.0, "yoy": 308.0, "kg": 40722, "mom_pct": 40.4, "tag": null}, {"品項": "＃1花生(粒)(1*2.8kg)", "料號": "B2021", "類別": "花生類", "pots": 160.0, "prev": 128.0, "yoy": 204.0, "kg": 19163, "mom_pct": 25.0, "tag": null}, {"品項": "上好佳草莓餡4.5KG", "料號": "C1030", "類別": "果醬餡類", "pots": 84.0, "prev": 16.0, "yoy": 0.0, "kg": 13662, "mom_pct": 425.0, "tag": null}, {"品項": "深烤焙花生醬(1*18KG)", "料號": "D0422", "類別": "花生類", "pots": 80.0, "prev": 0.0, "yoy": 56.0, "kg": 9900, "mom_pct": null, "tag": null}, {"品項": "草莓餡45%(1*6Kg)", "料號": "D0113", "類別": "果醬餡類", "pots": 76.0, "prev": 16.0, "yoy": 40.0, "kg": 11784, "mom_pct": 375.0, "tag": null}, {"品項": "蜜桔皮", "料號": "F0010", "類別": "果醬餡類", "pots": 75.0, "prev": 0.0, "yoy": 50.0, "kg": 370, "mom_pct": null, "tag": null}, {"品項": "＃1藍莓(1*3.2kg)", "料號": "B3011", "類別": "果醬餡類", "pots": 72.0, "prev": 108.0, "yoy": 144.0, "kg": 10611, "mom_pct": -33.3, "tag": null}, {"品項": "＃1桔子(1*3.2kg)", "料號": "B5011", "類別": "果醬餡類", "pots": 68.0, "prev": 36.0, "yoy": 108.0, "kg": 10384, "mom_pct": 88.9, "tag": null}, {"品項": "PET大花生(1*400g)", "料號": "A2020", "類別": "花生類", "pots": 60.0, "prev": 40.0, "yoy": 0.0, "kg": 7392, "mom_pct": 50.0, "tag": null}, {"品項": "小藍莓1*260G", "料號": "A3010", "類別": "果醬餡類", "pots": 56.0, "prev": 24.0, "yoy": 32.0, "kg": 8627, "mom_pct": 133.3, "tag": null}, {"品項": "藍莓醬(1*6kg)", "料號": "D0230", "類別": "果醬餡類", "pots": 52.0, "prev": 28.0, "yoy": 20.0, "kg": 7872, "mom_pct": 85.7, "tag": null}, {"品項": "蜜餞水果(1*1kg)", "料號": "F0020", "類別": "果醬餡類", "pots": 50.0, "prev": 0.0, "yoy": 0.0, "kg": 294, "mom_pct": null, "tag": null}, {"品項": "大圓草莓-新", "料號": "A1020", "類別": "果醬餡類", "pots": 48.0, "prev": 104.0, "yoy": 60.0, "kg": 7239, "mom_pct": -53.8, "tag": null}, {"品項": "顆粒花生醬(1*12KG)", "料號": "D0121", "類別": "花生類", "pots": 42.0, "prev": 42.0, "yoy": 63.0, "kg": 3768, "mom_pct": 0.0, "tag": null}, {"品項": "顆粒花生醬(1*12KG)", "料號": "D0122", "類別": "花生類", "pots": 42.0, "prev": 21.0, "yoy": 21.0, "kg": 3888, "mom_pct": 100.0, "tag": null}, {"品項": "#2草莓果醬(1*900g)", "料號": "B1040", "類別": "果醬餡類", "pots": 40.0, "prev": 60.0, "yoy": 60.0, "kg": 5841, "mom_pct": -33.3, "tag": null}, {"品項": "花生醬(1*18KG)", "料號": "D0420", "類別": "花生類", "pots": 40.0, "prev": 0.0, "yoy": 0.0, "kg": 5148, "mom_pct": null, "tag": null}, {"品項": "＃2花生(1*800g)", "料號": "B2031", "類別": "花生類", "pots": 36.0, "prev": 20.0, "yoy": 20.0, "kg": 4511, "mom_pct": 80.0, "tag": null}, {"品項": "草莓椰果餡(1*6Kg)", "料號": "D0114", "類別": "果醬餡類", "pots": 36.0, "prev": 20.0, "yoy": 20.0, "kg": 5712, "mom_pct": 80.0, "tag": null}, {"品項": "草莓餡°(1*6KG)", "料號": "D1410-1", "類別": "果醬餡類", "pots": 36.0, "prev": 0.0, "yoy": 16.0, "kg": 5418, "mom_pct": null, "tag": null}, {"品項": "顆粒花生醬(全)", "料號": "A2060", "類別": "花生類", "pots": 32.0, "prev": 48.0, "yoy": 36.0, "kg": 3916, "mom_pct": -33.3, "tag": null}, {"品項": "藍莓餡(1*6Kg)", "料號": "D0134", "類別": "果醬餡類", "pots": 32.0, "prev": 16.0, "yoy": 0.0, "kg": 4986, "mom_pct": 100.0, "tag": null}, {"品項": "顆粒花生醬(1*12KG)", "料號": "D0120", "類別": "花生類", "pots": 21.0, "prev": 21.0, "yoy": 21.0, "kg": 1992, "mom_pct": 0.0, "tag": null}, {"品項": "PET瓶花生(1*340g)", "料號": "A2040", "類別": "花生類", "pots": 20.0, "prev": 16.0, "yoy": 20.0, "kg": 2392, "mom_pct": 25.0, "tag": null}, {"品項": "＃2藍莓(1*900g)", "料號": "B3020", "類別": "果醬餡類", "pots": 20.0, "prev": 20.0, "yoy": 60.0, "kg": 2877, "mom_pct": 0.0, "tag": null}, {"品項": "上好佳柳橙餡4.5KG", "料號": "C5020", "類別": "果醬餡類", "pots": 20.0, "prev": 0.0, "yoy": 0.0, "kg": 3105, "mom_pct": null, "tag": null}, {"品項": "藍莓餡(1*6KG)", "料號": "D0331", "類別": "果醬餡類", "pots": 20.0, "prev": 84.0, "yoy": 0.0, "kg": 3072, "mom_pct": -76.2, "tag": null}, {"品項": "梨山草莓果醬(1*430g)", "料號": "A1050", "類別": "果醬餡類", "pots": 16.0, "prev": 16.0, "yoy": 20.0, "kg": 2317, "mom_pct": 0.0, "tag": null}, {"品項": "上好佳藍莓餡(大)4.5KG", "料號": "C3080", "類別": "果醬餡類", "pots": 16.0, "prev": 24.0, "yoy": 0.0, "kg": 2642, "mom_pct": -33.3, "tag": null}, {"品項": "草莓餡(1*6Kg)", "料號": "D0111", "類別": "果醬餡類", "pots": 16.0, "prev": 16.0, "yoy": 20.0, "kg": 2508, "mom_pct": 0.0, "tag": null}, {"品項": "蘋果餡(1*6Kg)", "料號": "D0191-1", "類別": "果醬餡類", "pots": 16.0, "prev": 0.0, "yoy": 0.0, "kg": 2484, "mom_pct": null, "tag": null}, {"品項": "草莓餡(1*6KG)", "料號": "D2212", "類別": "果醬餡類", "pots": 16.0, "prev": 32.0, "yoy": 48.0, "kg": 2448, "mom_pct": -50.0, "tag": null}, {"品項": "開心草莓果醬(1*430g)", "料號": "A1040", "類別": "果醬餡類", "pots": 15.0, "prev": 27.0, "yoy": 30.0, "kg": 2386, "mom_pct": -44.4, "tag": null}, {"品項": "＃2花生（粒）(1*800g)", "料號": "B2041", "類別": "花生類", "pots": 12.0, "prev": 12.0, "yoy": 24.0, "kg": 1440, "mom_pct": 0.0, "tag": null}, {"品項": "草莓果醬(桶)(1*9.5KG)", "料號": "C1010", "類別": "果醬餡類", "pots": 12.0, "prev": 0.0, "yoy": 0.0, "kg": 1890, "mom_pct": null, "tag": null}, {"品項": "藍莓餡（大）(1*9.08kg)", "料號": "C3020", "類別": "果醬餡類", "pots": 12.0, "prev": 12.0, "yoy": 12.0, "kg": 1889, "mom_pct": 0.0, "tag": null}, {"品項": "上好佳藍莓餡(大)4.5KG", "料號": "C3081", "類別": "果醬餡類", "pots": 12.0, "prev": 12.0, "yoy": 0.0, "kg": 1948, "mom_pct": 0.0, "tag": null}, {"品項": "鳳梨芒果百香果醬(1*6KG)", "料號": "D0290", "類別": "果醬餡類", "pots": 12.0, "prev": 12.0, "yoy": 12.0, "kg": 1728, "mom_pct": 0.0, "tag": null}, {"品項": "藍莓餡(1*6KG)", "料號": "D0330", "類別": "果醬餡類", "pots": 12.0, "prev": 20.0, "yoy": 56.0, "kg": 1812, "mom_pct": -40.0, "tag": null}, {"品項": "草莓餡(1*4.5Kg)", "料號": "D0810", "類別": "果醬餡類", "pots": 12.0, "prev": 12.0, "yoy": 8.0, "kg": 1908, "mom_pct": 0.0, "tag": null}, {"品項": "特殊藍莓餡(1*9.08kg)", "料號": "D2531", "類別": "果醬餡類", "pots": 12.0, "prev": 0.0, "yoy": 12.0, "kg": 1970, "mom_pct": null, "tag": null}, {"品項": "PET瓶花生(粒)(1*340g)", "料號": "A2050", "類別": "花生類", "pots": 8.0, "prev": 12.0, "yoy": 12.0, "kg": 972, "mom_pct": -33.3, "tag": null}, {"品項": "＃1草莓原漿(1*3.4kg)", "料號": "B1031", "類別": "果醬餡類", "pots": 8.0, "prev": 0.0, "yoy": 0.0, "kg": 1166, "mom_pct": null, "tag": null}, {"品項": "天天熱帶水果餡 4.5KG", "料號": "C9040", "類別": "果醬餡類", "pots": 8.0, "prev": 0.0, "yoy": 0.0, "kg": 1260, "mom_pct": null, "tag": null}, {"品項": "上好佳藍莓餡(1*4.5kg)", "料號": "D2233", "類別": "果醬餡類", "pots": 8.0, "prev": 8.0, "yoy": 0.0, "kg": 1282, "mom_pct": 0.0, "tag": null}, {"品項": "草莓果醬(1*6KG)", "料號": "D2712", "類別": "果醬餡類", "pots": 8.0, "prev": 8.0, "yoy": 0.0, "kg": 2202, "mom_pct": 0.0, "tag": null}, {"品項": "花生醬(1*18KG)", "料號": "D9922", "類別": "花生類", "pots": 8.0, "prev": 0.0, "yoy": 0.0, "kg": 990, "mom_pct": null, "tag": null}, {"品項": "藍莓顆粒果醬(1*6kg)", "料號": "D0231", "類別": "果醬餡類", "pots": 6.0, "prev": 6.0, "yoy": 18.0, "kg": 972, "mom_pct": 0.0, "tag": null}, {"品項": "水蜜桃醬(1*6kg)", "料號": "D0241", "類別": "果醬餡類", "pots": 6.0, "prev": 6.0, "yoy": 6.0, "kg": 888, "mom_pct": 0.0, "tag": null}, {"品項": "蔓越莓醬(1*6KG)", "料號": "D0291", "類別": "果醬餡類", "pots": 6.0, "prev": 0.0, "yoy": 0.0, "kg": 882, "mom_pct": null, "tag": null}, {"品項": "桑椹果粒茶(1*400G)", "料號": "D0592", "類別": "果醬餡類", "pots": 6.0, "prev": 0.0, "yoy": 0.0, "kg": 896, "mom_pct": null, "tag": null}, {"品項": "文旦柚茶(1*420g)", "料號": "D0593", "類別": "果醬餡類", "pots": 6.0, "prev": 0.0, "yoy": 6.0, "kg": 941, "mom_pct": null, "tag": null}, {"品項": "小圓草莓(1*170g)", "料號": "A1032", "類別": "果醬餡類", "pots": 4.0, "prev": 0.0, "yoy": 4.0, "kg": 614, "mom_pct": null, "tag": null}, {"品項": "藍莓餡(1*6Kg)", "料號": "D0131", "類別": "果醬餡類", "pots": 4.0, "prev": 20.0, "yoy": 28.0, "kg": 576, "mom_pct": -80.0, "tag": null}, {"品項": "藍莓果醬(1*210G)", "料號": "D0530", "類別": "果醬餡類", "pots": 4.0, "prev": 0.0, "yoy": 0.0, "kg": 607, "mom_pct": null, "tag": null}, {"品項": "檸檬藍莓醬1*260G", "料號": "A3012", "類別": "果醬餡類", "pots": 3.0, "prev": 0.0, "yoy": 5.0, "kg": 438, "mom_pct": null, "tag": null}, {"品項": "上好佳綜合莓餡4.5KG", "料號": "C9050", "類別": "果醬餡類", "pots": 3.0, "prev": 0.0, "yoy": 0.0, "kg": 459, "mom_pct": null, "tag": null}, {"品項": "玫瑰洛神餡(1*4.5KG)", "料號": "D0990", "類別": "果醬餡類", "pots": 3.0, "prev": 0.0, "yoy": 0.0, "kg": 446, "mom_pct": null, "tag": null}, {"品項": "蜜綠果6m/m", "料號": "152010", "類別": "果醬餡類", "pots": 2.0, "prev": 0.0, "yoy": 0.0, "kg": 208, "mom_pct": null, "tag": null}, {"品項": "蜜桔皮6m/m", "料號": "153010", "類別": "果醬餡類", "pots": 2.0, "prev": 0.0, "yoy": 0.0, "kg": 1008, "mom_pct": null, "tag": null}, {"品項": "蜜紅果6m/m", "料號": "151010", "類別": "果醬餡類", "pots": 1.5, "prev": 0.0, "yoy": 0.0, "kg": 168, "mom_pct": null, "tag": null}, {"品項": "糖漬桔皮絲", "料號": "111010", "類別": "果醬餡類", "pots": 1.0, "prev": 1.0, "yoy": 1.0, "kg": 720, "mom_pct": 0.0, "tag": null}, {"品項": "柚皮鮮果乾(100g)", "料號": "D0594", "類別": "果醬餡類", "pots": 1.0, "prev": 0.0, "yoy": 1.0, "kg": 172, "mom_pct": null, "tag": null}, {"品項": "文旦絲(1*1KG/包)", "料號": "D0992", "類別": "果醬餡類", "pots": 1.0, "prev": 0.0, "yoy": 0.0, "kg": 380, "mom_pct": null, "tag": null}, {"品項": "柚皮糖B", "料號": "D1792", "類別": "果醬餡類", "pots": 1.0, "prev": 0.0, "yoy": 0.0, "kg": 168, "mom_pct": null, "tag": null}], "categories": {"果醬餡類": {"pots": 1700, "prev": 1237, "yoy": 1816, "kg": 243834, "mom_pct": 37.5, "yoy_pct": -6.4, "share": 59.3}, "花生類": {"pots": 1169, "prev": 856, "yoy": 1021, "kg": 137800, "mom_pct": 36.6, "yoy_pct": 14.5, "share": 40.7}}, "same_month": [{"year": 2024, "pots": 2778}, {"year": 2025, "pots": 2837}, {"year": 2026, "pots": 2870}], "typical_mom": -1.9, "seasonal_note": "本月環比 37.1%，優於過去同月份平均的 -1.9%。", "seasonal_sample": "季節性參考樣本：2 年（2024、2025）。樣本少於 3 年，僅供參考。", "trend": [{"label": "2024/11", "pots": 2846, "kg": 394792}, {"label": "2024/12", "pots": 3342, "kg": 408265}, {"label": "2025/01", "pots": 2255, "kg": 307779}, {"label": "2025/02", "pots": 2260, "kg": 311788}, {"label": "2025/03", "pots": 2431, "kg": 337091}, {"label": "2025/04", "pots": 2609, "kg": 362644}, {"label": "2025/05", "pots": 2623, "kg": 352985}, {"label": "2025/06", "pots": 3051, "kg": 405708}, {"label": "2025/07", "pots": 3165, "kg": 424285}, {"label": "2025/08", "pots": 2736, "kg": 360857}, {"label": "2025/09", "pots": 2905, "kg": 390619}, {"label": "2025/10", "pots": 2837, "kg": 394522}, {"label": "2025/11", "pots": 2212, "kg": 292215}, {"label": "2025/12", "pots": 2863, "kg": 369805}, {"label": "2026/01", "pots": 3051, "kg": 393716}, {"label": "2026/02", "pots": 1955, "kg": 270203}, {"label": "2026/03", "pots": 3038, "kg": 410915}, {"label": "2026/04", "pots": 2862, "kg": 378638}, {"label": "2026/05", "pots": 2600, "kg": 349557}, {"label": "2026/06", "pots": 1760, "kg": 233990}, {"label": "2026/07", "pots": 2824, "kg": 392928}, {"label": "2026/08", "pots": 2984, "kg": 404421}, {"label": "2026/09", "pots": 2093, "kg": 290328}, {"label": "2026/10", "pots": 2870, "kg": 381633}], "waterfall": {"start": 2093, "end": 2870, "steps": [{"label": "藍莓餡(1*6KG)", "code": "D0331", "delta": -64}, {"label": "大圓草莓-新", "code": "A1020", "delta": -56}, {"label": "＃1藍莓(1*3.2kg)", "code": "B3011", "delta": -36}, {"label": "藍莓餡(1*6kg)", "code": "D1130", "delta": -24}, {"label": "#2草莓果醬(1*900g)", "code": "B1040", "delta": -20}, {"label": "顆粒花生醬(全)", "code": "A2060", "delta": -16}, {"label": "藍莓餡(1*6Kg)", "code": "D0131", "delta": -16}, {"label": "草莓餡(1*6KG)", "code": "D2212", "delta": -16}, {"label": "開心草莓果醬(1*430g)", "code": "A1040", "delta": -12}, {"label": "蘋果藍莓餡(1*9.08kg)", "code": "D2330", "delta": -12}, {"label": "其他 14 項減少", "code": "", "delta": -77}, {"label": "其他 31 項增加", "code": "", "delta": 340}, {"label": "草莓餡°(1*6KG)", "code": "D1410-1", "delta": 36}, {"label": "花生醬(1*18KG)", "code": "D0420", "delta": 40}, {"label": "蜜餞水果(1*1kg)", "code": "F0020", "delta": 50}, {"label": "草莓餡45%(1*6Kg)", "code": "D0113", "delta": 60}, {"label": "上好佳草莓餡4.5KG", "code": "C1030", "delta": 68}, {"label": "蜜桔皮", "code": "F0010", "delta": 75}, {"label": "草莓蒟蒻餡(1*6kg)", "code": "D0310", "delta": 76}, {"label": "深烤焙花生醬(1*18KG)", "code": "D0422", "delta": 80}, {"label": "＃1花生(1*2.8kg)", "code": "B2011", "delta": 128}, {"label": "＃1草莓(1*3.2kg)", "code": "B1011", "delta": 172}], "dec_total": -349, "inc_total": 1126}, "waterfall_yoy": {"start": 2837, "end": 2870, "steps": [{"label": "草莓醬(1*6kg)", "code": "D0210", "delta": -90}, {"label": "＃1藍莓(1*3.2kg)", "code": "B3011", "delta": -72}, {"label": "天天開心草莓餡4.5KG", "code": "C1020", "delta": -48}, {"label": "＃1花生(粒)(1*2.8kg)", "code": "B2021", "delta": -44}, {"label": "草莓蒟蒻餡(1*6kg)", "code": "D0310", "delta": -44}, {"label": "藍莓餡(1*6KG)", "code": "D0330", "delta": -44}, {"label": "＃2藍莓(1*900g)", "code": "B3020", "delta": -40}, {"label": "＃1桔子(1*3.2kg)", "code": "B5011", "delta": -40}, {"label": "草莓餡(1*6KG)", "code": "D2212", "delta": -32}, {"label": "蘋果餡(1*6Kg)", "code": "D0191-2", "delta": -28}, {"label": "其他 23 項減少", "code": "", "delta": -239}, {"label": "其他 28 項增加", "code": "", "delta": 286}, {"label": "小藍莓1*260G", "code": "A3010", "delta": 24}, {"label": "蜜桔皮", "code": "F0010", "delta": 25}, {"label": "藍莓醬(1*6kg)", "code": "D0230", "delta": 32}, {"label": "藍莓餡(1*6Kg)", "code": "D0134", "delta": 32}, {"label": "草莓餡45%(1*6Kg)", "code": "D0113", "delta": 36}, {"label": "花生醬(1*18KG)", "code": "D0420", "delta": 40}, {"label": "蜜餞水果(1*1kg)", "code": "F0020", "delta": 50}, {"label": "PET大花生(1*400g)", "code": "A2020", "delta": 60}, {"label": "上好佳草莓餡4.5KG", "code": "C1030", "delta": 84}, {"label": "＃1花生(1*2.8kg)", "code": "B2011", "delta": 84}], "dec_total": -721, "inc_total": 754}, "anomalies": [], "tracking": {"month": "2026/09", "items": [{"kind": "A級衰退", "料號": "B1011", "品項": "＃1草莓(1*3.2kg)", "core": true, "tag": null, "then": "208 鍋（比較基準 464 鍋，流失 256 鍋）", "same": 208, "now": 380, "status": "回升中", "cls": "mid"}, {"kind": "A級衰退", "料號": "B2011", "品項": "＃1花生(1*2.8kg)", "core": true, "tag": null, "then": "480 鍋（比較基準 688 鍋，流失 208 鍋）", "same": 480, "now": 608, "status": "回升中", "cls": "mid"}, {"kind": "A級衰退", "料號": "D0310", "品項": "草莓蒟蒻餡(1*6kg)", "core": true, "tag": null, "then": "188 鍋（比較基準 292 鍋，流失 104 鍋）", "same": 188, "now": 264, "status": "已恢復", "cls": "ok"}, {"kind": "A級衰退", "料號": "D0330", "品項": "藍莓餡(1*6KG)", "core": true, "tag": null, "then": "20 鍋（比較基準 68 鍋，流失 48 鍋）", "same": 20, "now": 12, "status": "持續下滑", "cls": "bad"}, {"kind": "A級衰退", "料號": "D0121", "品項": "顆粒花生醬(1*12KG)", "core": true, "tag": null, "then": "42 鍋（比較基準 63 鍋，流失 21 鍋）", "same": 42, "now": 42, "status": "未改善", "cls": "mid"}, {"kind": "B級衰退", "料號": "D0113", "品項": "草莓餡45%(1*6Kg)", "core": false, "tag": null, "then": "16 鍋（比較基準 64 鍋，流失 48 鍋）", "same": 16, "now": 76, "status": "已恢復", "cls": "ok"}, {"kind": "B級衰退", "料號": "D0122", "品項": "顆粒花生醬(1*12KG)", "core": false, "tag": null, "then": "21 鍋（比較基準 63 鍋，流失 42 鍋）", "same": 21, "now": 42, "status": "回升中", "cls": "mid"}, {"kind": "B級衰退", "料號": "B3020", "品項": "＃2藍莓(1*900g)", "core": false, "tag": null, "then": "20 鍋（比較基準 60 鍋，流失 40 鍋）", "same": 20, "now": 20, "status": "未改善", "cls": "mid"}, {"kind": "B級衰退", "料號": "A2020", "品項": "PET大花生(1*400g)", "core": false, "tag": null, "then": "40 鍋（比較基準 76 鍋，流失 36 鍋）", "same": 40, "now": 60, "status": "回升中", "cls": "mid"}, {"kind": "B級衰退", "料號": "C1030", "品項": "上好佳草莓餡4.5KG", "core": false, "tag": null, "then": "16 鍋（比較基準 52 鍋，流失 36 鍋）", "same": 16, "now": 84, "status": "已恢復", "cls": "ok"}, {"kind": "B級衰退", "料號": "D0120", "品項": "顆粒花生醬(1*12KG)", "core": false, "tag": null, "then": "21 鍋（比較基準 54 鍋，流失 33 鍋）", "same": 21, "now": 21, "status": "未改善", "cls": "mid"}, {"kind": "B級衰退", "料號": "D0230", "品項": "藍莓醬(1*6kg)", "core": false, "tag": null, "then": "28 鍋（比較基準 56 鍋，流失 28 鍋）", "same": 28, "now": 52, "status": "已恢復", "cls": "ok"}, {"kind": "斷單", "料號": "D0210", "品項": "草莓醬(1*6kg)", "core": true, "tag": null, "then": "0 鍋（前期月均 89）", "same": 0, "now": 0, "status": "持續斷單（連續 2 月）", "cls": "bad"}, {"kind": "斷單", "料號": "D0422", "品項": "深烤焙花生醬(1*18KG)", "core": false, "tag": null, "then": "0 鍋（前期月均 58）", "same": 0, "now": 80, "status": "恢復生產", "cls": "ok"}, {"kind": "斷單", "料號": "B2021-1", "品項": "＃1花生(粒)(1*2.8kg)", "core": false, "tag": null, "then": "0 鍋（前期月均 54）", "same": 0, "now": 0, "status": "持續斷單（連續 5 月）", "cls": "bad"}, {"kind": "斷單", "料號": "F0010", "品項": "蜜桔皮", "core": true, "tag": null, "then": "0 鍋（前期月均 52）", "same": 0, "now": 75, "status": "恢復生產", "cls": "ok"}, {"kind": "斷單", "料號": "D0420", "品項": "花生醬(1*18KG)", "core": false, "tag": null, "then": "0 鍋（前期月均 41）", "same": 0, "now": 40, "status": "恢復生產", "cls": "ok"}, {"kind": "斷單", "料號": "F0020", "品項": "蜜餞水果(1*1kg)", "core": false, "tag": null, "then": "0 鍋（前期月均 35）", "same": 0, "now": 50, "status": "恢復生產", "cls": "ok"}, {"kind": "斷單", "料號": "D0291", "品項": "蔓越莓醬(1*6KG)", "core": false, "tag": null, "then": "0 鍋（前期月均 34）", "same": 0, "now": 6, "status": "恢復生產", "cls": "ok"}, {"kind": "斷單", "料號": "D1410-1", "品項": "草莓餡°(1*6KG)", "core": false, "tag": null, "then": "0 鍋（前期月均 23）", "same": 0, "now": 36, "status": "恢復生產", "cls": "ok"}, {"kind": "斷單", "料號": "C7020", "品項": "上好佳芒果餡(大)4.5KG", "core": false, "tag": null, "then": "0 鍋（前期月均 20）", "same": 0, "now": 0, "status": "持續斷單（連續 2 月）", "cls": "bad"}]}, "ma": {"rows": [{"品項": "本業合計", "料號": "", "core": false, "ma": 2649, "ma_before": 2394, "ma_ly": 2826, "seq_pct": 10.6, "yoy_pct": -6.3, "verdict": "趨勢持平", "cls": "mid", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [2212, 2863, 3051, 1955, 3038, 2862, 2600, 1760, 2824, 2984, 2093, 2870], "series": [2652, 2638, 2709, 2623, 2682, 2618, 2833, 2407, 2394, 2523, 2634, 2649]}, {"品項": "＃1花生(1*2.8kg)", "料號": "B2011", "core": true, "ma": 592, "ma_before": 471, "ma_ly": 591, "seq_pct": 25.8, "yoy_pct": 0.2, "verdict": "趨勢持平", "cls": "mid", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [368, 492, 476, 432, 628, 692, 388, 368, 656, 688, 480, 608], "series": [512, 461, 445, 467, 512, 584, 569, 483, 471, 571, 608, 592]}, {"品項": "＃1草莓(1*3.2kg)", "料號": "B1011", "core": true, "ma": 347, "ma_before": 300, "ma_ly": 380, "seq_pct": 15.6, "yoy_pct": -8.8, "verdict": "趨勢持平", "cls": "mid", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [272, 288, 352, 360, 416, 336, 408, 140, 352, 452, 208, 380], "series": [365, 307, 304, 333, 376, 371, 387, 295, 300, 315, 337, 347]}, {"品項": "草莓蒟蒻餡(1*6kg)", "料號": "D0310", "core": true, "ma": 248, "ma_before": 217, "ma_ly": 229, "seq_pct": 14.1, "yoy_pct": 8.1, "verdict": "趨勢持平", "cls": "mid", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [252, 280, 272, 76, 284, 196, 224, 216, 212, 292, 188, 264], "series": [264, 280, 268, 209, 211, 185, 235, 212, 217, 240, 231, 248]}, {"品項": "＃1花生(粒)(1*2.8kg)", "料號": "B2021", "core": true, "ma": 141, "ma_before": 69, "ma_ly": 163, "seq_pct": 103.8, "yoy_pct": -13.1, "verdict": "趨勢下滑", "cls": "bad", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [168, 116, 88, 36, 272, 160, 0, 28, 180, 136, 128, 160], "series": [141, 163, 124, 80, 132, 156, 144, 63, 69, 115, 148, 141]}, {"品項": "大圓草莓-新", "料號": "A1020", "core": true, "ma": 76, "ma_before": 85, "ma_ly": 73, "seq_pct": -10.9, "yoy_pct": 3.6, "verdict": "趨勢持平", "cls": "mid", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [104, 96, 92, 48, 80, 80, 68, 56, 132, 76, 104, 48], "series": [81, 87, 97, 79, 73, 69, 76, 68, 85, 88, 104, 76]}, {"品項": "＃1藍莓(1*3.2kg)", "料號": "B3011", "core": true, "ma": 96, "ma_before": 65, "ma_ly": 107, "seq_pct": 46.9, "yoy_pct": -10.0, "verdict": "趨勢下滑", "cls": "bad", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [32, 36, 108, 108, 36, 60, 100, 60, 36, 108, 108, 72], "series": [93, 71, 59, 84, 84, 68, 65, 73, 65, 68, 84, 96]}, {"品項": "草莓醬(1*6kg)", "料號": "D0210", "core": true, "ma": 8, "ma_before": 94, "ma_ly": 101, "seq_pct": -91.5, "yoy_pct": -92.1, "verdict": "趨勢下滑", "cls": "bad", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [30, 58, 86, 64, 108, 118, 118, 72, 92, 24, 0, 0], "series": [81, 59, 58, 69, 86, 97, 115, 103, 94, 63, 39, 8]}, {"品項": "蜜桔皮", "料號": "F0010", "core": true, "ma": 42, "ma_before": 33, "ma_ly": 57, "seq_pct": 25.0, "yoy_pct": -26.5, "verdict": "趨勢下滑", "cls": "bad", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [80, 100, 177, 0, 50, 60, 80, 20, 0, 50, 0, 75], "series": [67, 77, 119, 92, 76, 37, 63, 53, 33, 23, 17, 42]}, {"品項": "顆粒花生醬(1*12KG)", "料號": "D0121", "core": true, "ma": 49, "ma_before": 49, "ma_ly": 56, "seq_pct": 0.0, "yoy_pct": -12.5, "verdict": "趨勢下滑", "cls": "bad", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [57, 57, 60, 21, 63, 63, 42, 63, 42, 63, 42, 42], "series": [54, 59, 58, 46, 48, 49, 56, 56, 49, 56, 49, 49]}, {"品項": "藍莓餡(1*6KG)", "料號": "D0330", "core": true, "ma": 13, "ma_before": 43, "ma_ly": 57, "seq_pct": -68.7, "yoy_pct": -76.7, "verdict": "趨勢下滑", "cls": "bad", "labels": ["2025/11", "2025/12", "2026/01", "2026/02", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"], "monthly": [60, 80, 48, 60, 56, 72, 60, 24, 44, 8, 20, 12], "series": [61, 65, 63, 63, 55, 63, 63, 52, 43, 25, 24, 13]}], "n": 3, "end": "2026/10", "window": "2026/08–2026/10", "window_before": "2026/05–2026/07", "window_ly": "2025/08–2025/10"}, "kg_coverage": 100.0, "kg_pending": false, "nokg_pots": 0, "factory_kg_per_pot": 134.5, "light": "red", "light_label": "需注意", "light_reasons": ["1 項主力品項斷單（連續 ≥2 月）"], "config": {"decline_pct": 10, "min_scale_pots": 20, "top_n": 10, "dormant_lookback": 6, "dormant_min_active": 3, "kg_flat_pct": 3, "trend_months": 24, "b_grade_pct": 1, "red_core_loss_pct": 15, "red_core_dormant_months": 2, "red_ma_trend_pct": 10, "dormant_lost_months": 3, "anomaly_min_pots": 5, "anomaly_dev_pct": 50, "anomaly_min_history": 3, "anomaly_new_low_pct": 20, "anomaly_new_high_pct": 300, "anomaly_kg_coverage_pct": 50, "waterfall_items": 10, "preview_gap_days": 5, "_planned_shutdowns_help": "已知的計畫性停產（員工旅遊、年度保養等）。期中預覽遇到這段期間的無生產紀錄，會標示為計畫性停產，而不是提醒資料漏登。只影響說明文字，不改變燈號與數字。", "planned_shutdowns": [{"start": "2026-09-07", "end": "2026-09-11", "reason": "員工旅遊"}], "ma_months": 3, "ma_trend_pct": 10, "_grading_help": "警示分級：A=主力品項（不設門檻）；B=非主力且流失鍋數 ≥ 本業總鍋數×b_grade_pct%；C=其餘（收合）。燈號紅燈：本業同比 ≤ −decline_pct%、主力品項連續 ≥ red_core_dormant_months 月斷單，或主力品項流失合計 ≥ 本業總鍋數×red_core_loss_pct%（15% ＋ 連續斷單 ≥2 月為 2025/01~2026/08 回測後採用的設定：20 個月中 10 個月紅燈；5% 會讓 19 個月亮紅燈）。斷單連續 ≥ dormant_lost_months 月列為疑似流失。資料異常：本月鍋數 ≥ anomaly_min_pots 且重量為 0，或每鍋重量偏離前 12 個月中位數 ±anomaly_dev_pct%（需 ≥ anomaly_min_history 個月歷史；歷史不足者改與全廠平均每鍋重量比較，低於 anomaly_new_low_pct% 或高於 anomaly_new_high_pct% 即列出）。本月有重量的鍋數占比 < anomaly_kg_coverage_pct% 時視為重量尚未填入，暫不檢查。", "_item_overrides_help": "以料號為 key 標註特殊品項。status: discontinued=已下市（完全排除警示與燈號）; seasonal_oem=季節性代工（不列主力、不觸發燈號、另計排除後總量）; excluded=不納入分析（資料有誤，所有月份紀錄一律剔除，總量、YTD、趨勢、警示皆不計）。新增品項只要加一行。", "item_overrides": {"C1020": {"status": "discontinued", "label": "已下市", "note": "已下市產品，非接單流失（天天開心草莓餡4.5KG）"}, "D0390": {"status": "excluded", "label": "不納入分析", "note": "代工品項，鍋數欄實際填的是公斤、7 月數據亦有誤；自 2026/09 報告起所有月份數據皆不納入分析（化應子(1*2.5KG)）"}, "155121": {"status": "excluded", "label": "不納入分析", "note": "季節性客製化特殊品項，鍋數欄實際填的是包數（每包 15 kg）；自 2026/10 報告起所有月份數據皆不納入分析（糖蜜柚泥）"}}}};
+const C = {blue:'#1d4ed8', amber:'#b45309', teal:'#0f766e', red:'#dc2626', green:'#16a34a', grey:'#94a3b8'};
+const grid = {color:'#eef2f7'}, tick = {color:'#475569', font:{size:13}};
+Chart.defaults.font.size = 13;
+const baseOpts = (extra) => Object.assign({
+  responsive:true, maintainAspectRatio:false,
+  interaction:{mode:'index', intersect:false},
+  plugins:{legend:{labels:{color:'#334155', usePointStyle:true, pointStyle:'circle', font:{size:13.5}}}}
+}, extra || {});
+const hOpts = () => ({
+  responsive:true, maintainAspectRatio:false, indexAxis:'y',
+  interaction:{mode:'index', intersect:false, axis:'y'},
+  plugins:{legend:{labels:{color:'#334155', usePointStyle:true, pointStyle:'circle', font:{size:13.5}}}},
+  scales:{x:{grid:grid, ticks:tick, beginAtZero:true}, y:{grid:{display:false}, ticks:{color:'#0f172a', font:{size:13}}}}
+});
+const shortName = (s) => s.length > 16 ? s.slice(0,16)+'…' : s;
+
+// 1. 趨勢
+new Chart(document.getElementById('trendChart'), {
+  data:{labels:R.trend.map(t=>t.label), datasets:[
+    {type:'bar', label:'鍋數', data:R.trend.map(t=>t.pots), backgroundColor:C.blue+'cc', borderRadius:4, yAxisID:'y'},
+    {type:'line', label:'重量 (kg)', data:R.trend.map(t=>t.kg), borderColor:C.teal, backgroundColor:C.teal,
+     borderWidth:2, tension:.3, pointRadius:2, yAxisID:'y1'}
+  ]},
+  options: baseOpts({scales:{
+    x:{grid:grid, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
+    y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}},
+    y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:13}}}
+  }})
+});
+
+// 2. 三期比較
+new Chart(document.getElementById('cmpChart'), {
+  type:'bar',
+  // 由舊到新（去年 → 上月 → 本月），與右側季節性對照的時間方向一致；標籤分兩行避免被自動省略
+  data:{labels:R.preview ? [['去年同期', R.preview.yoy_period], ['上月同期', R.preview.prev_period], ['本月至今', R.preview.cur_period]]
+                         : [['去年同月', R.yoy_label], ['上月', R.prev_label], ['本月', R.month]], datasets:[
+    {label:'鍋數', data:[R.totals.pots_yoy, R.totals.pots_prev, R.totals.pots], backgroundColor:C.blue+'cc', borderRadius:5, yAxisID:'y'},
+    {label:'重量 (kg)', data:[R.totals.kg_yoy, R.totals.kg_prev, R.totals.kg], backgroundColor:C.teal+'99', borderRadius:5, yAxisID:'y1'}
+  ]},
+  options: baseOpts({scales:{
+    x:{grid:{display:false}, ticks:Object.assign({maxRotation:0, autoSkip:false}, tick)},
+    y:{position:'left', grid:grid, ticks:tick, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}},
+    y1:{position:'right', grid:{display:false}, ticks:tick, title:{display:true, text:'kg', color:'#64748b', font:{size:13}}}
+  }})
+});
+
+// 3. 季節性
+new Chart(document.getElementById('seasonChart'), {
+  type:'bar',
+  data:{labels:R.same_month.map(s=>s.year+'年'), datasets:[
+    {label:R.mon+'月總鍋數', data:R.same_month.map(s=>s.pots),
+     backgroundColor:R.same_month.map(s=>s.year===R.year?C.blue+'dd':C.grey+'99'), borderRadius:5}
+  ]},
+  options: baseOpts({plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false}, ticks:tick}, y:{grid:grid, ticks:tick, beginAtZero:true}}})
+});
+
+// 4. 衰退 Top N
+const dec = R.alerts.filter(a=>a.grade==='A'||a.grade==='B').slice(0, R.config.top_n);
+new Chart(document.getElementById('declineChart'), {
+  type:'bar',
+  data:{labels:dec.map(a=>shortName(a['品項'])), datasets:[
+    {label:R.preview?'較上月同期流失鍋數':'較上月流失鍋數', data:dec.map(a=>Math.max(0, a.pots_prev-a.pots_cur)), backgroundColor:C.red+'bb', borderRadius:4},
+    {label:R.preview?'較去年同期流失鍋數':'較去年同月流失鍋數', data:dec.map(a=>Math.max(0, a.pots_yoy-a.pots_cur)), backgroundColor:C.amber+'99', borderRadius:4}
+  ]},
+  options: hOpts()
+});
+
+// 5. 成長 Top N
+new Chart(document.getElementById('growthChart'), {
+  type:'bar',
+  data:{labels:R.growth.map(g=>shortName(g['品項'])), datasets:[
+    {label:'增加鍋數', data:R.growth.map(g=>g.gain), backgroundColor:C.green+'bb', borderRadius:4}
+  ]},
+  options: hOpts()
+});
+
+// 6. Pareto
+new Chart(document.getElementById('paretoChart'), {
+  data:{labels:R.top_items.map(t=>shortName(t['品項'])), datasets:[
+    {type:'bar', label:'鍋數', data:R.top_items.map(t=>t.pots), backgroundColor:C.blue+'bb', borderRadius:4, yAxisID:'y'},
+    {type:'line', label:'累積佔比 %', data:R.top_items.map(t=>t.cum_share), borderColor:C.amber,
+     backgroundColor:C.amber, borderWidth:2, tension:.25, pointRadius:3, yAxisID:'y1'}
+  ]},
+  options: baseOpts({scales:{
+    x:{grid:{display:false}, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
+    y:{position:'left', grid:grid, ticks:tick},
+    y1:{position:'right', grid:{display:false}, ticks:tick, min:0, max:100}
+  }})
+});
+
+// 8. 環比／同比瀑布（浮動長條：總量為藍、減少為紅、增加為綠）
+function drawWaterfall(W, canvasId, startLabel){
+  if (!W || !document.getElementById(canvasId)) return;
+  const labels = [], data = [], colors = [], deltas = [];
+  let run = W.start, lo = Math.min(W.start, W.end), hi = Math.max(W.start, W.end);
+  W.steps.forEach(st => { run += st.delta; lo = Math.min(lo, run); hi = Math.max(hi, run); });
+  run = W.start;
+  // 縱軸不從 0 開始，否則小幅增減會看不見（總量長條以截斷方式呈現，說明文字已註明）
+  const pad = Math.max(50, (hi - lo) * 0.15), step = Math.pow(10, Math.floor(Math.log10(Math.max(1, hi - lo + 2*pad))));
+  const yMin = Math.max(0, Math.floor((lo - pad) / step) * step);
+  labels.push(startLabel); data.push([0, W.start]); colors.push(C.blue+'cc'); deltas.push(null);
+  W.steps.forEach(st => {
+    const next = run + st.delta;
+    labels.push(shortName(st.label)); data.push([Math.min(run, next), Math.max(run, next)]);
+    colors.push(st.delta < 0 ? C.red+'bb' : C.green+'bb'); deltas.push(st.delta);
+    run = next;
+  });
+  labels.push(R.preview ? '本月至今' : '本月 '+R.month); data.push([0, W.end]); colors.push(C.blue+'cc'); deltas.push(null);
+  const fullNames = [labels[0]].concat(W.steps.map(st => st.label + (st.code ? '（'+st.code+'）' : ''))).concat([labels[labels.length-1]]);
+  new Chart(document.getElementById(canvasId), {
+    type:'bar',
+    data:{labels:labels, datasets:[{label:'鍋數', data:data, backgroundColor:colors, borderRadius:3, borderSkipped:false}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        title:(items)=>fullNames[items[0].dataIndex],
+        label:(ctx)=>{const d=deltas[ctx.dataIndex]; const v=ctx.raw;
+          return d===null ? '合計 '+(v[1]).toLocaleString()+' 鍋' : (d>0?'+':'')+d.toLocaleString()+' 鍋';}}}},
+      scales:{x:{grid:{display:false}, ticks:Object.assign({maxRotation:60, autoSkip:false}, tick)},
+              y:{grid:grid, ticks:tick, min:yMin, title:{display:true, text:'鍋數', color:'#64748b', font:{size:13}}}}}
+  });
+}
+drawWaterfall(R.waterfall, 'wfChart', R.preview ? '上月同期' : '上月 '+R.prev_label);
+drawWaterfall(R.waterfall_yoy, 'wfYoyChart', R.preview ? '去年同期' : '去年 '+R.yoy_label);
+
+// 9. YTD 累計（今年 vs 去年；有季節性代工時主線為排除後）
+(function(){
+  const Y = R.ytd, S = Y.series, ds = [
+    {label:(Y.has_oem?'今年（排除季節性代工）':'今年'), data:S.this_ex, borderColor:C.blue, backgroundColor:C.blue, borderWidth:2, pointRadius:3, tension:.2},
+    {label:(Y.has_oem?'去年（排除季節性代工）':'去年'), data:S.last_ex, borderColor:C.grey, backgroundColor:C.grey, borderWidth:2, pointRadius:3, tension:.2}
+  ];
+  if (Y.has_oem) ds.push({label:'今年（含季節性代工）', data:S.this_all, borderColor:C.amber, backgroundColor:C.amber,
+    borderWidth:2, borderDash:[5,4], pointRadius:2, tension:.2});
+  new Chart(document.getElementById('ytdChart'), {type:'line', data:{labels:S.labels, datasets:ds},
+    options: baseOpts({scales:{x:{grid:{display:false}, ticks:tick},
+      y:{grid:grid, ticks:tick, beginAtZero:true, title:{display:true, text:'累計鍋數', color:'#64748b', font:{size:13}}}}})});
+})();
+
+// 10. 主力品項 3 個月移動平均小圖（灰長條＝月鍋數，藍線＝移動平均）
+(R.ma ? R.ma.rows : []).forEach((r, i) => {
+  const el = document.getElementById('ma' + i);
+  if (!el) return;
+  new Chart(el, {
+    data:{labels:r.labels, datasets:[
+      {type:'line', label:'3 個月平均', data:r.series, borderColor:C.blue, borderWidth:2, pointRadius:0, tension:.3},
+      {type:'bar', label:'月鍋數', data:r.monthly, backgroundColor:C.grey+'66', borderRadius:2}
+    ]},
+    options:{responsive:false, animation:false, plugins:{legend:{display:false},
+      tooltip:{mode:'index', intersect:false, titleFont:{size:12}, bodyFont:{size:12}}},
+      scales:{x:{display:false}, y:{display:false, beginAtZero:true}}}
+  });
+});
+
+// 7. 類別
+const cats = Object.keys(R.categories);
+new Chart(document.getElementById('catChart'), {
+  type:'bar',
+  data:{labels:cats, datasets:[
+    {label:R.preview?'本月至今':'本月', data:cats.map(c=>R.categories[c].pots), backgroundColor:C.blue+'cc', borderRadius:5},
+    {label:R.preview?'上月同期':'上月', data:cats.map(c=>R.categories[c].prev), backgroundColor:C.grey+'99', borderRadius:5},
+    {label:R.preview?'去年同期':'去年同月', data:cats.map(c=>R.categories[c].yoy), backgroundColor:C.amber+'99', borderRadius:5}
+  ]},
+  options: baseOpts({scales:{x:{grid:{display:false}, ticks:tick}, y:{grid:grid, ticks:tick, beginAtZero:true}}})
+});
+
+// 11. PDF 簡報：列印前切成 A4 橫式寬度、展開所有收合區塊、圖表以高解析度重繪，
+//     再依頁高把區塊排進每一頁（放得下就同頁，放不下就換頁；圖表不會被切開，長表格可跨頁續接）。
+(function(){
+  const PAGE_H = 700;   // A4 橫式扣除邊界後的可用高度（px，96dpi）
+  let reopened = [];
+  const charts = () => Object.values(Chart.instances || {});
+  function redraw(dpr){
+    charts().forEach(c => {
+      c.options.devicePixelRatio = dpr;
+      if (c.options.responsive) c.resize(); else c.resize(c.width, c.height);
+    });
+  }
+  function layout(){
+    if (document.body.classList.contains('pdf')) return;
+    document.body.classList.add('pdf');
+    reopened = Array.from(document.querySelectorAll('details:not([open])'));
+    reopened.forEach(d => { d.open = true; });
+    redraw(3);
+    const blocks = Array.from(document.querySelectorAll('.wrap > *'))
+      .filter(el => el.tagName !== 'SCRIPT' && el.offsetHeight > 0);
+    const pages = [[]];
+    let used = 0, flowing = false;
+    blocks.forEach(el => {
+      el.style.breakBefore = '';
+      // 不含大圖表的卡片（文字、表格）可以跨頁續接
+      const split = el.classList.contains('card') && !el.querySelector('.chart');
+      el.classList.toggle('split', split);
+      const cs = getComputedStyle(el);
+      const h = el.getBoundingClientRect().height + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+      if (el.tagName === 'FOOTER') return;   // 頁尾說明一律接在最後一頁內容後面
+      if (used > 0 && used + h > PAGE_H) {
+        if (split && PAGE_H - used > PAGE_H * 0.35) {
+          flowing = true;            // 表格從本頁下半開始、續接到下一頁
+        } else {
+          el.style.breakBefore = 'page';
+          pages.push([]); used = 0; flowing = false;
+        }
+      }
+      pages[pages.length - 1].push({el: el, h: h});
+      if (flowing || h > PAGE_H) {   // 跨頁的區塊：之後的頁面不做放大，避免推擠
+        pages[pages.length - 1].flow = true;
+        pages.push([]); pages[pages.length - 1].flow = true;
+        used = (used + h) % PAGE_H; flowing = false;
+      } else {
+        used += h;
+      }
+    });
+    // 同一頁的剩餘空間平均分給該頁的圖表，讓圖表放大、頁面不留大片空白
+    pages.forEach(pg => {
+      if (pg.flow || !pg.length) return;
+      const left = PAGE_H - 12 - pg.reduce((a, b) => a + b.h, 0);
+      const grow = pg.filter(b => b.el.querySelector('.chart'));
+      if (left < 30 || !grow.length) return;
+      const add = Math.min(260, left / grow.length);
+      grow.forEach(b => b.el.querySelectorAll('.chart').forEach(c => {
+        c.style.height = (c.getBoundingClientRect().height + add) + 'px';
+      }));
+    });
+    redraw(3);
+  }
+  function restore(){
+    if (!document.body.classList.contains('pdf')) return;
+    document.body.classList.remove('pdf');
+    reopened.forEach(d => { d.open = false; });
+    reopened = [];
+    document.querySelectorAll('.wrap > *').forEach(el => { el.style.breakBefore = ''; el.classList.remove('split'); });
+    document.querySelectorAll('.chart').forEach(c => { c.style.height = ''; });
+    redraw(window.devicePixelRatio || 1);
+  }
+  window.__pdfLayout = layout; window.__pdfRestore = restore;
+  window.addEventListener('beforeprint', layout);
+  window.addEventListener('afterprint', restore);
+  const btn = document.getElementById('pdfBtn');
+  if (btn) btn.addEventListener('click', () => { layout(); setTimeout(() => window.print(), 250); });
+})();
+</script>
+</body>
+</html>
